@@ -142,6 +142,12 @@ export function SectionNetwork({
                     value: 'fill-first',
                     label: t('config_management.visual.sections.network.strategy_fill_first'),
                   },
+                  {
+                    value: 'closest-to-reset',
+                    label: t(
+                      'config_management.visual.sections.network.strategy_closest_to_reset'
+                    ),
+                  },
                 ]}
                 id={`${routingStrategyLabelId}-select`}
                 disabled={disabled}

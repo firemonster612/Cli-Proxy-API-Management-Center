@@ -213,7 +213,8 @@
     "ws_auth_enable": "Require auth for /ws/*",
     "routing_strategy_round_robin": "round-robin (cycle)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (weighted cycle)",
-    "routing_strategy_fill_first": "fill-first (prioritize)"
+    "routing_strategy_fill_first": "fill-first (prioritize)",
+    "routing_strategy_closest_to_reset": "closest-to-reset (burn soonest reset)"
   },
   "auth_files": {
     "title": "Auth Files Management",
@@ -1029,7 +1030,8 @@
           "disable_cooling_desc": "Globally disable auth/model cooldown windows after failures",
           "session_affinity": "Session Affinity Routing",
           "ws_auth": "WebSocket Authentication",
-          "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"
+          "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)",
+          "strategy_closest_to_reset": "Closest to reset"
         },
         "quota": {
           "title": "Quota Fallback",

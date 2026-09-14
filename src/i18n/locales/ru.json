@@ -212,7 +212,8 @@
     "ws_auth_enable": "Требовать аутентификацию для /ws/*",
     "routing_strategy_round_robin": "round-robin (цикл)",
     "routing_strategy_weighted_round_robin": "weighted-round-robin (взвешенный цикл)",
-    "routing_strategy_fill_first": "fill-first (приоритет)"
+    "routing_strategy_fill_first": "fill-first (приоритет)",
+    "routing_strategy_closest_to_reset": "closest-to-reset (ближайший сброс)"
   },
   "auth_files": {
     "title": "Управление файлами авторизации",
@@ -1016,7 +1017,8 @@
           "disable_cooling_desc": "Глобально отключить окна охлаждения auth/model после ошибок",
           "session_affinity": "Маршрутизация с привязкой к сессии",
           "ws_auth": "Аутентификация WebSocket",
-          "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)"
+          "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)",
+          "strategy_closest_to_reset": "Ближайший сброс"
         },
         "quota": {
           "title": "Резерв по квоте",
