@@ -93,13 +93,13 @@ export function buildQuotaColumns(
 export const hasQuotaColumns = (type: QuotaProviderType): boolean =>
   type === 'claude' || type === 'codex';
 
-export const LOW_REMAINING_PERCENT = 10;
-export const WARN_REMAINING_PERCENT = 30;
+/** Green above this much left, yellow below it, red only when nothing is left. */
+export const WARN_REMAINING_PERCENT = 40;
 
-/** True when a decision-driving window (5-hour or weekly) is under the low line. */
+/** True when a decision-driving window (5-hour or weekly) is exhausted. */
 export function isRunningLow(columns: QuotaColumns | null): boolean {
   if (!columns) return false;
   return [columns.fiveHour, columns.weekly].some(
-    (cell) => cell?.remaining !== null && cell !== null && cell.remaining < LOW_REMAINING_PERCENT
+    (cell) => cell !== null && cell.remaining !== null && cell.remaining <= 0
   );
 }

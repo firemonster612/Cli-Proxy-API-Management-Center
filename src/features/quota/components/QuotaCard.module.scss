@@ -262,12 +262,14 @@
   display: grid;
   grid-template-columns: 3.6ch minmax(0, 1fr) 5.6ch;
   column-gap: 8px;
+  row-gap: 5px;
   align-items: center;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .shimmerTrack {
   grid-column: 2;
+  grid-row: 2;
   display: block;
   height: 10px;
   border-radius: $radius-full;

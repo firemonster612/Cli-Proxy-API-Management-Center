@@ -57,16 +57,22 @@ describe('buildQuotaColumns', () => {
 });
 
 describe('isRunningLow', () => {
-  test('flags a decision window under 10% left, ignores the model column', () => {
+  test('flags an exhausted decision window, ignores the model column', () => {
     const low = buildQuotaColumns('claude', {
       status: 'success',
-      windows: [window('five-hour', 95), window('seven-day', 20)],
+      windows: [window('five-hour', 100), window('seven-day', 20)],
     });
     expect(isRunningLow(low)).toBe(true);
 
+    const nearlyOut = buildQuotaColumns('claude', {
+      status: 'success',
+      windows: [window('five-hour', 95), window('seven-day', 20)],
+    });
+    expect(isRunningLow(nearlyOut)).toBe(false);
+
     const modelOnly = buildQuotaColumns('claude', {
       status: 'success',
-      windows: [window('five-hour', 20), window('seven-day', 20), window('seven-day-opus', 99)],
+      windows: [window('five-hour', 20), window('seven-day', 20), window('seven-day-opus', 100)],
     });
     expect(isRunningLow(modelOnly)).toBe(false);
     expect(isRunningLow(null)).toBe(false);
