@@ -1,60 +1,53 @@
 /**
- * 额度卡片：头部（提供商图标 + mono 文件名）+ 四态 body + 动作 footer。
+ * Quota row: cloud icon + identity column (email over plan) + four-state body
+ * + compact actions. One credential per full-width row so the usage meters
+ * read as horizontal bars in a dense list.
  *
- * - idle：整个 body 是一个点击加载按钮（上游直连有速率考虑，不自动拉取）；
- * - loading：双幽灵行骨架（aria-busy，文字等价视觉隐藏）；
- * - error：失败色条 + footer 刷新即重试；
- * - success：provider Body（穿 QuotaBody.module.scss 全页外衣）。
+ * - idle: the body is a click-to-load button (upstream fetches are rate
+ *   sensitive, so nothing loads automatically);
+ * - loading: ghost-row skeleton (aria-busy, visually hidden text equivalent);
+ * - error: failure strip + footer refresh retries;
+ * - success: provider Body (dressed by QuotaBody.module.scss).
  */
 
 import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconRefreshCw } from '@/components/ui/icons';
-import type { ResolvedTheme } from '@/types';
+import { IconCloud, IconRefreshCw } from '@/components/ui/icons';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
-import {
-  getAuthFileIcon,
-  getThemeSurfaceIconBackground,
-  getTypeLabel,
-  isThemeSurfaceIconProvider,
-} from '@/features/authFiles/constants';
+import { getTypeLabel } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import { quotaPlanLabel } from './planLabel';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
 
-/** 额度页全页外衣：QuotaBody 模块绑定成类型化契约（缺键在模块初始化即抛）。 */
+/** Typed contract over the QuotaBody module (missing keys throw at module init). */
 const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
   quota?: QuotaCardState;
-  resolvedTheme: ResolvedTheme;
   canRefresh: boolean;
   resetting: boolean;
-  /** 首屏级联入场延迟；null = 不入场（切 tab / 翻页 / 刷新新挂载的卡片）。 */
+  /** First-paint cascade delay; null = no entrance (tab switch / paging / refresh mounts). */
   entranceDelayMs?: number | null;
   onRefresh: () => void;
   onReset: () => void;
 };
 
+/** The email is the identity; the filename only disambiguates in the tooltip. */
+const identityFor = (name: string, email?: string): string =>
+  email && email.trim() !== '' ? email : name.replace(/\.json$/, '');
+
 export function QuotaCard(props: QuotaCardProps) {
-  const {
-    entry,
-    quota,
-    resolvedTheme,
-    canRefresh,
-    resetting,
-    entranceDelayMs,
-    onRefresh,
-    onReset,
-  } = props;
+  const { entry, quota, canRefresh, resetting, entranceDelayMs, onRefresh, onReset } = props;
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
 
-  // 挂载时捕获一次延迟：后续 props 变 null 不影响本卡（React 19 禁渲染期读 ref）
+  // Capture the delay once on mount: later prop changes to null must not
+  // affect this card (React 19 forbids reading refs during render).
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
   const entranceStyle =
     mountEntranceDelayMs === null
@@ -63,8 +56,8 @@ export function QuotaCard(props: QuotaCardProps) {
 
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
-  const iconSrc = getAuthFileIcon(entry.type, resolvedTheme);
   const typeLabel = getTypeLabel(t, entry.type);
+  const planLabel = quotaPlanLabel(entry.type, quota, t);
   const errorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,
@@ -81,26 +74,16 @@ export function QuotaCard(props: QuotaCardProps) {
       className={`${styles.card} ${mountEntranceDelayMs === null ? '' : styles.cardEnter}`}
       style={entranceStyle}
     >
-      <header className={styles.head}>
-        <span
-          className={styles.iconWrap}
-          title={typeLabel}
-          style={
-            isThemeSurfaceIconProvider(entry.type)
-              ? { background: getThemeSurfaceIconBackground(resolvedTheme) }
-              : undefined
-          }
-        >
-          {iconSrc ? (
-            <img src={iconSrc} alt="" className={styles.icon} />
-          ) : (
-            <span className={styles.iconFallback}>{typeLabel.slice(0, 1).toUpperCase()}</span>
-          )}
+      <span className={styles.iconWrap} title={typeLabel}>
+        <IconCloud size={17} className={styles.cloudIcon} />
+      </span>
+
+      <div className={styles.identity} title={file.name}>
+        <span className={styles.email}>{identityFor(file.name, file.email)}</span>
+        <span className={planLabel ? styles.plan : styles.planFallback}>
+          {planLabel ?? typeLabel}
         </span>
-        <span className={styles.fileName} title={file.name}>
-          {file.name}
-        </span>
-      </header>
+      </div>
 
       <div className={styles.body}>
         {status === 'idle' ? (
@@ -110,7 +93,7 @@ export function QuotaCard(props: QuotaCardProps) {
             onClick={onRefresh}
             disabled={!canRefresh}
           >
-            <IconRefreshCw size={15} aria-hidden="true" className={styles.idleGlyph} />
+            <IconRefreshCw size={13} aria-hidden="true" className={styles.idleGlyph} />
             <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
           </button>
         ) : loading ? (
@@ -134,20 +117,20 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
       </div>
 
-      {status !== 'idle' && (
-        <footer className={styles.actionRow}>
-          {showReset && (
-            <button
-              type="button"
-              className={styles.actionPill}
-              onClick={onReset}
-              disabled={!canRefresh || loading || resetting}
-              title={t('codex_quota.reset_button')}
-            >
-              <IconRefreshCw size={13} className={resetting ? styles.spinning : undefined} />
-              {t('codex_quota.reset_button')}
-            </button>
-          )}
+      <footer className={styles.actionRow}>
+        {status !== 'idle' && showReset && (
+          <button
+            type="button"
+            className={styles.actionPill}
+            onClick={onReset}
+            disabled={!canRefresh || loading || resetting}
+            title={t('codex_quota.reset_button')}
+          >
+            <IconRefreshCw size={13} className={resetting ? styles.spinning : undefined} />
+            {t('codex_quota.reset_button')}
+          </button>
+        )}
+        {status !== 'idle' && (
           <button
             type="button"
             className={styles.actionPill}
@@ -158,8 +141,8 @@ export function QuotaCard(props: QuotaCardProps) {
             <IconRefreshCw size={13} className={loading ? styles.spinning : undefined} />
             {t('auth_files.quota_refresh_single')}
           </button>
-        </footer>
-      )}
+        )}
+      </footer>
     </article>
   );
 }

@@ -291,7 +291,7 @@ export function QuotaPage() {
         {loading ? (
           <div className={styles.grid} aria-hidden="true">
             {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={168} rounded={14} />
+              <Skeleton key={index} height={54} rounded={12} />
             ))}
           </div>
         ) : isEmpty ? (
@@ -321,7 +321,6 @@ export function QuotaPage() {
                 key={`${entry.type}:${entry.file.name}`}
                 entry={entry}
                 quota={getQuota(entry)}
-                resolvedTheme={resolvedTheme}
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === entry.file.name}
                 entranceDelayMs={cardEntranceDelay(index)}

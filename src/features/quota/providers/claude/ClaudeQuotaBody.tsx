@@ -21,16 +21,10 @@ export function ClaudeQuotaBody({ quota, classes }: QuotaBodyProps<ClaudeQuotaSt
   );
   const windows = quota.windows ?? [];
   const extraUsage = quota.extraUsage ?? null;
-  const planType = quota.planType ?? null;
 
   return (
     <>
-      {planType && (
-        <div className={classes.codexPlan}>
-          <span className={classes.codexPlanLabel}>{t('claude_quota.plan_label')}</span>
-          <span className={classes.codexPlanValue}>{t(`claude_quota.${planType}`)}</span>
-        </div>
-      )}
+      {/* The plan itself renders in the row's identity column (quotaPlanLabel). */}
       {extraUsage && extraUsage.is_enabled && (
         <div className={classes.codexPlan}>
           <span className={classes.codexPlanLabel}>{t('claude_quota.extra_usage_label')}</span>
