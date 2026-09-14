@@ -16,19 +16,24 @@
 .quotaRow {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
   min-width: 0;
 }
 
+/* Header wraps: the label keeps the first line with the percent pinned right;
+ * the reset instant and countdown drop to a second line when the cell is
+ * narrower than all four together, so labels never truncate to "5…". */
 .quotaRowHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
+  row-gap: 2px;
   min-width: 0;
 }
 
 .quotaModel {
+  flex: 1 1 55%;
   min-width: 0;
   font-size: 12.5px;
   font-weight: 600;
@@ -36,20 +41,33 @@
   @include text-ellipsis;
 }
 
-/* 遥测：mono + 等宽数字，刷新时数字不跳位 */
+/* Telemetry: mono + tabular digits so numbers don't shift on refresh. The
+ * wrapper is transparent to layout so its children wrap independently. */
 .quotaMeta {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  flex-shrink: 0;
+  display: contents;
+}
+
+.quotaPercent,
+.quotaResetGroup,
+.quotaAmount {
+  flex: 0 0 auto;
   font-family: $font-mono;
-  font-size: 11.5px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
 
-/* 百分比穿墨色而非填充色 —— 文字不承担状态编码，颜色留给水位条 */
+/* Absolute instant + countdown always share a line under the label. */
+.quotaResetGroup {
+  flex-basis: 100%;
+  min-width: 0;
+  @include text-ellipsis;
+}
+
+/* Percent in ink, not fill colour — text carries no status; the bar does */
 .quotaPercent {
+  margin-left: auto;
+  font-size: 13px;
   font-weight: 650;
   color: var(--text-primary);
 }
@@ -77,8 +95,6 @@
 }
 
 .quotaAmount {
-  font-family: $font-mono;
-  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
 
@@ -96,7 +112,7 @@
  * percent === null 时宽度为 0 —— 未知不着色。 */
 
 .quotaBar {
-  height: 6px;
+  height: 8px;
   border-radius: $radius-full;
   background: color-mix(in srgb, var(--text-primary) 8%, transparent);
   overflow: hidden;
@@ -168,14 +184,10 @@
   color: var(--text-quaternary);
 }
 
+/* Phones keep the wrapping header (label + percent on one line, reset below);
+ * the label may break across lines instead of truncating. */
 @include mobile {
-  .quotaRowHeader {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .quotaModel {
-    width: 100%;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;

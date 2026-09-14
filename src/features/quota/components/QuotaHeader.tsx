@@ -7,6 +7,7 @@ export type QuotaHeaderProps = {
   totalCount: number;
   loadedCount: number;
   attentionCount: number;
+  burningCount?: number;
   refreshing: boolean;
   disableControls: boolean;
   onRefreshAll: () => void;
@@ -20,8 +21,15 @@ export type QuotaHeaderProps = {
  * （标题 0ms → meta 70ms → 动作 140ms → tabs 210ms）。
  */
 export function QuotaHeader(props: QuotaHeaderProps) {
-  const { totalCount, loadedCount, attentionCount, refreshing, disableControls, onRefreshAll } =
-    props;
+  const {
+    totalCount,
+    loadedCount,
+    attentionCount,
+    burningCount = 0,
+    refreshing,
+    disableControls,
+    onRefreshAll,
+  } = props;
   const { t } = useTranslation();
   // 批量结果陆续落地时，「已加载」是页面上唯一滚动的数字
   const displayLoadedCount = useCountUp(loadedCount);
@@ -49,6 +57,16 @@ export function QuotaHeader(props: QuotaHeaderProps) {
               </span>
               <span className={styles.metaAttention}>
                 {t('quota_management.meta_attention', { count: attentionCount })}
+              </span>
+            </>
+          )}
+          {burningCount > 0 && (
+            <>
+              <span className={styles.metaDot} aria-hidden="true">
+                ·
+              </span>
+              <span className={styles.metaBurning}>
+                {t('quota_management.meta_burning', { count: burningCount })}
               </span>
             </>
           )}

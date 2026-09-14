@@ -43,6 +43,7 @@ import {
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
+import { useBurnPins } from './hooks/useBurnPins';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
@@ -203,6 +204,7 @@ export function QuotaPage() {
 
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
   const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(disableControls);
+  const { pins, pinFor, burn, stopBurning, busyAuthIndex } = useBurnPins(!disableControls);
 
   const pendingRefreshRef = useRef(false);
   const prevLoadingRef = useRef(loading);
@@ -255,6 +257,7 @@ export function QuotaPage() {
         totalCount={entries.length}
         loadedCount={loadedCount}
         attentionCount={attentionCount}
+        burningCount={pins.length}
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
@@ -321,11 +324,18 @@ export function QuotaPage() {
                 key={`${entry.type}:${entry.file.name}`}
                 entry={entry}
                 quota={getQuota(entry)}
+                pin={pinFor(entry.file)}
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === entry.file.name}
+                burnBusy={
+                  disableControls ||
+                  (busyAuthIndex !== null && busyAuthIndex === String(entry.file.authIndex ?? ''))
+                }
                 entranceDelayMs={cardEntranceDelay(index)}
                 onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
                 onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                onBurn={(choice) => void burn(entry.file, choice)}
+                onStopBurning={() => void stopBurning(entry.file)}
               />
             ))}
           </div>

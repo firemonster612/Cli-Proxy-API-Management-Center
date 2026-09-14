@@ -14,6 +14,7 @@ export interface QuotaClassMap {
   quotaModel: string;
   quotaMeta: string;
   quotaPercent: string;
+  quotaResetGroup: string;
   quotaReset: string;
   quotaResetRelative: string;
   quotaResetRelativeSoon: string;
@@ -54,6 +55,7 @@ export const QUOTA_CLASS_KEYS: readonly (keyof QuotaClassMap)[] = [
   'quotaModel',
   'quotaMeta',
   'quotaPercent',
+  'quotaResetGroup',
   'quotaReset',
   'quotaResetRelative',
   'quotaResetRelativeSoon',
