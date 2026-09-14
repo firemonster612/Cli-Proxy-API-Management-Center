@@ -6,11 +6,22 @@
 
 import type { TFunction } from 'i18next';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
-import { normalizePlanType, PREMIUM_CODEX_PLAN_TYPES } from '@/utils/quota';
+import {
+  normalizePlanType,
+  resolvePlanTier,
+  PREMIUM_CODEX_PLAN_TYPES,
+  type CodexPlanTier,
+} from '@/utils/quota';
 import type { QuotaCardState } from '../providers';
 import type { QuotaProviderType } from '../providers/types';
 
-/** Codex plan display label, shared with CodexQuotaBody's former chip logic. */
+export interface QuotaPlanDisplay {
+  label: string;
+  /** Codex elite/premium plans keep their tinted styling in the identity column. */
+  tier: CodexPlanTier;
+}
+
+/** Codex plan display label, moved out of CodexQuotaBody's former plan chip. */
 export function codexPlanLabel(planType: string | null | undefined, t: TFunction): string | null {
   const normalized = normalizePlanType(planType);
   if (!normalized) return null;
@@ -26,15 +37,18 @@ export function quotaPlanLabel(
   type: QuotaProviderType,
   quota: QuotaCardState | undefined,
   t: TFunction
-): string | null {
+): QuotaPlanDisplay | null {
   if (!quota || quota.status !== 'success') return null;
   switch (type) {
     case 'claude': {
       const planType = (quota as ClaudeQuotaState).planType;
-      return planType ? t(`claude_quota.${planType}`) : null;
+      return planType ? { label: t(`claude_quota.${planType}`), tier: 'plain' } : null;
     }
-    case 'codex':
-      return codexPlanLabel((quota as CodexQuotaState).planType, t);
+    case 'codex': {
+      const planType = (quota as CodexQuotaState).planType;
+      const label = codexPlanLabel(planType, t);
+      return label ? { label, tier: resolvePlanTier(planType) } : null;
+    }
     default:
       return null;
   }

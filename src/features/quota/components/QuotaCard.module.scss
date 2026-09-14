@@ -33,8 +33,14 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  /* Identity keeps the first line with the icon; the body wraps below. */
+  /* First line: icon, identity, actions; the body wraps below full-width. */
+  .actionRow {
+    grid-row: 1;
+    grid-column: 3;
+  }
+
   .body {
+    grid-row: 2;
     grid-column: 1 / -1;
   }
 }

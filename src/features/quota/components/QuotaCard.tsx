@@ -57,7 +57,13 @@ export function QuotaCard(props: QuotaCardProps) {
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
   const typeLabel = getTypeLabel(t, entry.type);
-  const planLabel = quotaPlanLabel(entry.type, quota, t);
+  const plan = quotaPlanLabel(entry.type, quota, t);
+  const planTierClass =
+    plan?.tier === 'elite'
+      ? quotaClasses.elitePlanValue
+      : plan?.tier === 'premium'
+        ? quotaClasses.premiumPlanValue
+        : '';
   const errorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,
@@ -80,8 +86,8 @@ export function QuotaCard(props: QuotaCardProps) {
 
       <div className={styles.identity} title={file.name}>
         <span className={styles.email}>{identityFor(file.name, file.email)}</span>
-        <span className={planLabel ? styles.plan : styles.planFallback}>
-          {planLabel ?? typeLabel}
+        <span className={plan ? `${styles.plan} ${planTierClass}` : styles.planFallback}>
+          {plan?.label ?? typeLabel}
         </span>
       </div>
 
@@ -117,20 +123,20 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
       </div>
 
-      <footer className={styles.actionRow}>
-        {status !== 'idle' && showReset && (
-          <button
-            type="button"
-            className={styles.actionPill}
-            onClick={onReset}
-            disabled={!canRefresh || loading || resetting}
-            title={t('codex_quota.reset_button')}
-          >
-            <IconRefreshCw size={13} className={resetting ? styles.spinning : undefined} />
-            {t('codex_quota.reset_button')}
-          </button>
-        )}
-        {status !== 'idle' && (
+      {status !== 'idle' && (
+        <footer className={styles.actionRow}>
+          {showReset && (
+            <button
+              type="button"
+              className={styles.actionPill}
+              onClick={onReset}
+              disabled={!canRefresh || loading || resetting}
+              title={t('codex_quota.reset_button')}
+            >
+              <IconRefreshCw size={13} className={resetting ? styles.spinning : undefined} />
+              {t('codex_quota.reset_button')}
+            </button>
+          )}
           <button
             type="button"
             className={styles.actionPill}
@@ -141,8 +147,8 @@ export function QuotaCard(props: QuotaCardProps) {
             <IconRefreshCw size={13} className={loading ? styles.spinning : undefined} />
             {t('auth_files.quota_refresh_single')}
           </button>
-        )}
-      </footer>
+        </footer>
+      )}
     </article>
   );
 }
