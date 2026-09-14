@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { burnPinsApi, type BurnPin, type BurnPinRequest } from '@/services/api';
 import { useNotificationStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
+import { formatCompactCountdown } from '../compactCountdown';
 
 const BURN_PIN_POLL_MS = 5000;
 
@@ -140,12 +141,5 @@ export function formatBurnRemaining(pin: BurnPin, nowMs: number): string | null 
   if (pin.indefinite || !pin.expires_at) return null;
   const end = Date.parse(pin.expires_at);
   if (Number.isNaN(end)) return null;
-  const totalMinutes = Math.max(0, Math.round((end - nowMs) / 60_000));
-  if (totalMinutes < 1) return '<1m';
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const minutes = totalMinutes % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-  return `${minutes}m`;
+  return formatCompactCountdown(end, nowMs);
 }

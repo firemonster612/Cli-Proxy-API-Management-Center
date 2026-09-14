@@ -1,30 +1,29 @@
 @use '../../../styles/mixins' as *;
 
 /* ============================================================
- * Quota row — one credential per full-width row.
+ * Board row. Column template and gap come from the list (--quota-grid,
+ * --quota-gap) so the sticky header and every row share one geometry:
  *
- *   [icon] [email            ] [window ─── bar ───][window ─── bar ───] [actions]
- *          [plan] [burning…  ]
+ *   [icon] [email / chips] [5-hour cell] [weekly cell] [model cell] [actions]
  *
- * The body is a responsive grid so a credential's usage windows sit side by
- * side and share the width instead of stacking; telemetry stays mono.
- * A burning row carries a warm left edge and tint.
+ * Burning rows get a warm left edge; rows with a decision window under
+ * 10% left get a red one.
  * ============================================================ */
 
 .card {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(180px, 250px) minmax(0, 1fr) auto;
+  grid-template-columns: var(--quota-grid);
+  column-gap: var(--quota-gap);
+  row-gap: 10px;
   align-items: center;
-  gap: 12px 26px;
-  padding: 16px 20px 16px 18px;
+  padding: 14px 20px 14px 18px;
   border-radius: 14px;
   border: 1px solid var(--border-color);
   background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
   transition:
     border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    box-shadow var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+    box-shadow var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -34,8 +33,10 @@
   }
 }
 
-/* Burning: warm edge, faint tint, warm icon. Kept subtle so a list with one
- * burning row still reads as one system. */
+.low {
+  box-shadow: inset 3px 0 0 var(--viz-failure);
+}
+
 .burning {
   border-color: color-mix(in srgb, var(--warning-color) 45%, var(--border-color));
   background:
@@ -56,6 +57,11 @@
   }
 }
 
+/* Both cues at once: warm edge wins the stripe, red stays on the numbers. */
+.burning.low {
+  box-shadow: inset 3px 0 0 var(--warning-color);
+}
+
 /* One-time cascade on first data; tab switch / paging / refresh don't replay */
 .cardEnter {
   animation: quota-card-in 0.45s var(--ease-out-strong, ease-out) both;
@@ -69,15 +75,14 @@
   }
 }
 
-/* ---------- identity: cloud icon + email over chips ---------- */
+/* ---------- identity ---------- */
 
 .iconWrap {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--bg-tertiary) 75%, transparent);
   transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
@@ -94,14 +99,19 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  outline: none;
+  border-radius: 8px;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
+  }
 }
 
 .email {
   min-width: 0;
-  font-family: $font-mono;
   font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.005em;
+  font-weight: 650;
+  letter-spacing: -0.005em;
   line-height: 1.3;
   color: var(--text-primary);
   @include text-ellipsis;
@@ -144,8 +154,7 @@
   font-weight: 500;
 }
 
-/* Plan tier tint classes come from QuotaBody (elite/premium); this only
- * makes room for them. */
+/* Plan tier tint classes come from QuotaBody (elite/premium). */
 .planChip {
   font-family: $font-mono;
 }
@@ -169,48 +178,57 @@
   }
 }
 
-/* ---------- body: windows side by side ---------- */
+/* ---------- tooltip bodies ---------- */
 
-.body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
-  gap: 10px 28px;
-  align-items: end;
-  min-width: 0;
-
-  > * {
-    min-width: 0;
-  }
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-/* ---------- idle: the whole body is the click-to-load target ---------- */
+.tooltipMono {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.tooltipMuted {
+  color: var(--text-tertiary);
+}
+
+/* ---------- non-columnar providers keep their own body ---------- */
+
+.providerBody {
+  grid-column: 3 / 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ---------- idle / loading / error span the three cell columns ---------- */
 
 .idleBody {
-  grid-column: 1 / -1;
+  grid-column: 3 / 6;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
-  min-height: 42px;
-  padding: 8px 14px;
+  min-height: 38px;
+  padding: 6px 14px;
   cursor: pointer;
   border: 1px dashed var(--border-color);
   border-radius: 10px;
   background: none;
   color: var(--text-tertiary);
   transition:
-    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out),
     border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 
   &:disabled {
     cursor: not-allowed;
     opacity: 0.55;
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.99);
   }
 
   &:focus-visible {
@@ -239,24 +257,19 @@
   text-align: center;
 }
 
-/* ---------- loading: ghost rows in the window cells ---------- */
-
-.skeleton {
-  display: contents;
+/* Skeleton: one track per cell, aligned like the real bars */
+.shimmerCell {
+  display: grid;
+  grid-template-columns: 3.6ch minmax(0, 1fr) 5.6ch;
+  column-gap: 8px;
+  align-items: center;
+  padding: 4px 0;
 }
 
-.skeletonRow {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-/* Skeleton: base + one 1.2s linear sweep (linear is the one exception for
- * ambient motion) */
-.skeletonLabel,
-.skeletonTrack {
+.shimmerTrack {
+  grid-column: 2;
   display: block;
+  height: 10px;
   border-radius: $radius-full;
   background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
   background-image: linear-gradient(
@@ -279,16 +292,6 @@
   }
 }
 
-.skeletonLabel {
-  width: 40%;
-  height: 10px;
-}
-
-.skeletonTrack {
-  width: 100%;
-  height: 8px;
-}
-
 .srOnly {
   position: absolute;
   width: 1px;
@@ -301,10 +304,8 @@
   border: 0;
 }
 
-/* ---------- error ---------- */
-
 .errorStrip {
-  grid-column: 1 / -1;
+  grid-column: 3 / 6;
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--viz-failure);
@@ -328,18 +329,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  width: 32px;
   height: 32px;
-  min-width: 32px;
-  padding: 0 8px;
   cursor: pointer;
   border: 1px solid var(--border-color);
   border-radius: $radius-full;
   background: none;
   color: var(--text-secondary);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
   transition:
     transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out),
     border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
@@ -359,10 +355,6 @@
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
   }
-}
-
-.iconButtonText {
-  display: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -393,12 +385,13 @@
   }
 }
 
-/* ---------- mobile: icon | identity | actions on line one, body below ---------- */
+/* ---------- phone: icon | identity | actions, then cells stacked ---------- */
 
 @include mobile {
   .card {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 12px 14px;
+    column-gap: 14px;
+    row-gap: 6px;
     padding: 14px 16px;
   }
 
@@ -407,8 +400,15 @@
     grid-column: 3;
   }
 
-  .body {
-    grid-row: 2;
+  .providerBody,
+  .idleBody,
+  .errorStrip,
+  .shimmerCell {
+    grid-column: 1 / -1;
+  }
+
+  /* Each QuotaCell takes its own full-width row beneath the identity line. */
+  .card > *:not(.iconWrap):not(.identity):not(.actions) {
     grid-column: 1 / -1;
   }
 }
@@ -422,14 +422,12 @@
     transition: none;
   }
 
-  .idleBody:active:not(:disabled),
   .iconButton:active:not(:disabled) {
     transform: none;
   }
 
   .cardEnter,
-  .skeletonLabel,
-  .skeletonTrack,
+  .shimmerTrack,
   .spinning {
     animation: none;
   }

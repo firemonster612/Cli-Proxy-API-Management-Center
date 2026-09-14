@@ -62,15 +62,26 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- row list ----------
- * One credential per full-width row; the row's internal grid (QuotaCard)
- * gives the horizontal usage bars the remaining width. */
+/* ---------- board ----------
+ * The column geometry lives here so the sticky header (QuotaColumnsHeader)
+ * and every row (QuotaCard) lay out on the same tracks:
+ * icon | identity | 5-hour | weekly | weekly·model | actions. */
 
-.grid {
+.list {
+  --quota-actions-width: 108px;
+  --quota-gap: 16px;
+  --quota-grid: 36px minmax(150px, 190px) repeat(3, minmax(0, 1fr)) var(--quota-actions-width);
+
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr;
   align-items: stretch;
+}
+
+@include mobile {
+  .list {
+    --quota-gap: 14px;
+  }
 }
 
 /* ---------- 分页 ---------- */

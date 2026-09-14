@@ -1213,7 +1213,13 @@
     "burn_chip_indefinite": "无期限",
     "burn_started": "已开始专烧 {{name}}：该提供商的全部请求将路由到此账号",
     "burn_stopped": "已停止专烧 {{name}}",
-    "burn_missing_auth_index": "该凭证没有 auth index，无法锁定"
+    "burn_missing_auth_index": "该凭证没有 auth index，无法锁定",
+    "col_account": "账号",
+    "col_five_hour": "5 小时",
+    "col_weekly": "每周",
+    "col_weekly_model": "每周 · 模型",
+    "cell_resets_at": "重置于",
+    "cell_reset_credits": "手动重置积分"
   },
   "plugin_management": {
     "title": "插件管理",

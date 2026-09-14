@@ -1,0 +1,157 @@
+@use '../../../styles/mixins' as *;
+
+/* percent | bar | countdown on one line; the bar takes the slack so every
+ * row's bar starts and ends at the same x inside its column. */
+.cell {
+  display: grid;
+  grid-template-columns: 3.6ch minmax(0, 1fr) 5.6ch;
+  align-items: center;
+  column-gap: 8px;
+  min-width: 0;
+  padding: 4px 0;
+  border-radius: 6px;
+  outline: none;
+  cursor: default;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
+  }
+}
+
+.cellEmpty {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.dash {
+  color: var(--text-quaternary);
+  font-size: 13px;
+}
+
+.mobileLabel {
+  display: none;
+}
+
+.percent {
+  font-family: $font-mono;
+  font-size: 13.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.track {
+  display: block;
+  height: 10px;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--text-primary) 38%, transparent);
+  transition: width 360ms var(--ease-out-strong, ease);
+}
+
+.countdown {
+  font-family: $font-mono;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Colour only when it's telling you to act. Amber is the meter's own token,
+ * not --warning-color, which this theme paints red-orange. */
+.warn {
+  .fill {
+    background: var(--quota-medium-color);
+  }
+
+  .countdown {
+    color: color-mix(in srgb, var(--quota-medium-color) 70%, var(--text-primary));
+  }
+}
+
+.low {
+  .fill {
+    background: var(--viz-failure);
+  }
+
+  .percent,
+  .countdown {
+    color: var(--viz-failure);
+  }
+}
+
+/* ---------- tooltip body ---------- */
+
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tooltipTitle {
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tooltipMono {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.tooltipMuted {
+  color: var(--text-tertiary);
+}
+
+/* ---------- phone: the header is gone, so each cell names its window ---------- */
+
+@include mobile {
+  .cell {
+    grid-template-columns: minmax(0, 1fr) 4ch;
+    grid-template-areas:
+      'label percent'
+      'track track'
+      'countdown countdown';
+    row-gap: 4px;
+    padding: 6px 0;
+  }
+
+  .cellEmpty {
+    display: none;
+  }
+
+  .mobileLabel {
+    display: block;
+    grid-area: label;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .percent {
+    grid-area: percent;
+  }
+
+  .track {
+    grid-area: track;
+  }
+
+  .countdown {
+    grid-area: countdown;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}

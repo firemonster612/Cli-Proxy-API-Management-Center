@@ -1,0 +1,41 @@
+@use '../../../styles/mixins' as *;
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: var(--quota-grid);
+  column-gap: var(--quota-gap);
+  align-items: end;
+  padding: 6px 20px 8px 18px;
+  background: color-mix(in srgb, var(--bg-secondary, var(--bg-primary)) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.account {
+  grid-column: 1 / 3;
+}
+
+/* Labels sit over the bar, which starts after the 4ch percent gutter. */
+.column {
+  padding-left: calc(3.6ch + 8px);
+  min-width: 0;
+  @include text-ellipsis;
+}
+
+.actions {
+  width: var(--quota-actions-width);
+}
+
+@include mobile {
+  .header {
+    display: none;
+  }
+}

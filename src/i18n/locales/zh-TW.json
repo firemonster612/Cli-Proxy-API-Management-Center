@@ -1239,7 +1239,13 @@
     "burn_chip_indefinite": "無期限",
     "burn_started": "已開始專燒 {{name}}：該供應商的全部請求將路由到此帳號",
     "burn_stopped": "已停止專燒 {{name}}",
-    "burn_missing_auth_index": "該憑證沒有 auth index，無法鎖定"
+    "burn_missing_auth_index": "該憑證沒有 auth index，無法鎖定",
+    "col_account": "帳號",
+    "col_five_hour": "5 小時",
+    "col_weekly": "每週",
+    "col_weekly_model": "每週 · 模型",
+    "cell_resets_at": "重置於",
+    "cell_reset_credits": "手動重置積分"
   },
   "plugin_management": {
     "title": "插件管理",

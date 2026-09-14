@@ -1,0 +1,30 @@
+@use '../../styles/mixins' as *;
+
+.card {
+  position: fixed;
+  z-index: 1200;
+  max-width: 300px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.35);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  pointer-events: none;
+  animation: hover-card-in 120ms var(--ease-out-strong, ease-out) both;
+}
+
+@keyframes hover-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}

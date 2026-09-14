@@ -1213,7 +1213,13 @@
     "burn_chip_indefinite": "no end",
     "burn_started": "Now burning {{name}}: all traffic for this provider routes here",
     "burn_stopped": "Stopped burning {{name}}",
-    "burn_missing_auth_index": "This credential has no auth index and cannot be pinned"
+    "burn_missing_auth_index": "This credential has no auth index and cannot be pinned",
+    "col_account": "Account",
+    "col_five_hour": "5-hour",
+    "col_weekly": "Weekly",
+    "col_weekly_model": "Weekly · model",
+    "cell_resets_at": "Resets",
+    "cell_reset_credits": "Manual reset credits"
   },
   "plugin_management": {
     "title": "Plugin Management",

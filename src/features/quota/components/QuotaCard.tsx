@@ -1,30 +1,31 @@
 /**
- * Quota row: cloud icon + identity column (email over plan / burn chips) +
- * four-state body + icon actions. One credential per full-width row so the
- * usage meters read as horizontal bars in a dense list.
+ * Board row: [icon] [email / chips] [5-hour] [weekly] [weekly · model] [actions].
+ * Rows share the page's --quota-grid so bars line up in columns.
  *
- * - idle: the body is a click-to-load button (upstream fetches are rate
- *   sensitive, so nothing loads automatically);
- * - loading: ghost-row skeleton (aria-busy, visually hidden text equivalent);
- * - error: failure strip + refresh retries;
- * - success: provider Body (dressed by QuotaBody.module.scss).
+ * Claude and Codex map onto the three cells (see ../columns.ts). Other
+ * providers keep their own body, spanning the three cell columns.
  *
  * Burn pins ("only burn this account") open from a right-click anywhere on
  * the row or from the flame button, independent of the quota load state.
  */
 
-import { useCallback, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useCallback, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HoverCard } from '@/components/ui/HoverCard';
 import { IconCloud, IconFlame, IconRefreshCw } from '@/components/ui/icons';
 import type { BurnPin } from '@/services/api';
+import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { useNow } from '@/hooks/useNow';
-import { resolveQuotaErrorMessage } from '@/utils/quota';
+import { buildResetDisplay, resolveQuotaErrorMessage, resolveResetMs } from '@/utils/quota';
+import { formatDateTimeValue } from '@/utils/format';
 import { getTypeLabel } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import { buildQuotaColumns, hasQuotaColumns, isRunningLow } from '../columns';
 import { formatBurnRemaining, type BurnChoice } from '../hooks/useBurnPins';
 import { BurnMenu } from './BurnMenu';
+import { QuotaCell } from './QuotaCell';
 import { quotaPlanLabel } from './planLabel';
 import bodyStyles from './QuotaBody.module.scss';
 import styles from './QuotaCard.module.scss';
@@ -65,7 +66,7 @@ export function QuotaCard(props: QuotaCardProps) {
     onBurn,
     onStopBurning,
   } = props;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const now = useNow(Boolean(pin));
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
@@ -110,6 +111,10 @@ export function QuotaCard(props: QuotaCardProps) {
     quota !== undefined &&
     Boolean(adapter.canResetQuota?.(quota));
 
+  const columns = buildQuotaColumns(entry.type, quota);
+  const columnar = hasQuotaColumns(entry.type);
+  const low = isRunningLow(columns);
+
   const burning = Boolean(pin);
   const burnRemaining = pin ? formatBurnRemaining(pin, now) : null;
   const burnModeLabel =
@@ -122,12 +127,124 @@ export function QuotaCard(props: QuotaCardProps) {
           : null;
   const identity = identityFor(file.name, file.email);
 
+  // Identity tooltip: filename always; Claude extra-usage spend when enabled.
+  const extraUsage = entry.type === 'claude' ? (quota as ClaudeQuotaState | undefined)?.extraUsage : null;
+  const identityTooltip = (
+    <div className={styles.tooltip}>
+      <div className={styles.tooltipMono}>{file.name}</div>
+      {extraUsage?.is_enabled && (
+        <div>
+          {t('claude_quota.extra_usage_label')}{' '}
+          <span className={styles.tooltipMono}>
+            {`$${(extraUsage.used_credits / 100).toFixed(2)} / $${(extraUsage.monthly_limit / 100).toFixed(2)}`}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  // Codex weekly extras: subscription expiry and manual reset credits.
+  let weeklyExtras: ReactNode = null;
+  if (entry.type === 'codex' && quota?.status === 'success') {
+    const codex = quota as CodexQuotaState;
+    const expiryMs = resolveResetMs([codex.subscriptionActiveUntil ?? null]);
+    const expiry = codex.subscriptionActiveUntil
+      ? buildResetDisplay(
+          expiryMs === null ? formatDateTimeValue(codex.subscriptionActiveUntil) : null,
+          expiryMs,
+          now,
+          i18n.resolvedLanguage
+        )
+      : null;
+    const credits = codex.rateLimitResetCreditsAvailableCount ?? null;
+    if (expiry || credits !== null) {
+      weeklyExtras = (
+        <>
+          {expiry && (
+            <div>
+              {t('codex_quota.expires_label')}{' '}
+              <span className={styles.tooltipMono}>{expiry.absolute}</span>
+              {expiry.relative && <span className={styles.tooltipMuted}> · {expiry.relative}</span>}
+            </div>
+          )}
+          {credits !== null && (
+            <div>
+              {t('quota_management.cell_reset_credits')}{' '}
+              <span className={styles.tooltipMono}>{credits}</span>
+            </div>
+          )}
+        </>
+      );
+    }
+  }
+
+  const columnLabels = {
+    fiveHour: t('quota_management.col_five_hour'),
+    weekly: t('quota_management.col_weekly'),
+    weeklyModel: t('quota_management.col_weekly_model'),
+  };
+
+  const renderCells = () => {
+    if (status === 'idle') {
+      return (
+        <button
+          type="button"
+          className={styles.idleBody}
+          onClick={onRefresh}
+          disabled={!canRefresh}
+        >
+          <IconRefreshCw size={13} aria-hidden="true" className={styles.idleGlyph} />
+          <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
+        </button>
+      );
+    }
+    if (loading) {
+      return (
+        <>
+          <span className={styles.srOnly} aria-busy="true">
+            {t(`${adapter.i18nPrefix}.loading`)}
+          </span>
+          {[0, 1, 2].map((index) => (
+            <span key={index} className={styles.shimmerCell} aria-hidden="true">
+              <span className={styles.shimmerTrack} />
+            </span>
+          ))}
+        </>
+      );
+    }
+    if (status === 'error') {
+      return (
+        <div className={styles.errorStrip} role="alert">
+          {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
+        </div>
+      );
+    }
+    if (columnar && columns) {
+      return (
+        <>
+          <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} />
+          <QuotaCell cell={columns.weekly} columnLabel={columnLabels.weekly} extras={weeklyExtras} />
+          <QuotaCell cell={columns.weeklyModel} columnLabel={columnLabels.weeklyModel} />
+        </>
+      );
+    }
+    if (quota) {
+      return (
+        <div className={styles.providerBody}>
+          <adapter.Body quota={quota} classes={quotaClasses} />
+        </div>
+      );
+    }
+    return <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>;
+  };
+
   return (
     <article
       className={[
         styles.card,
         mountEntranceDelayMs === null ? '' : styles.cardEnter,
         burning ? styles.burning : '',
+        low ? styles.low : '',
       ].join(' ')}
       style={entranceStyle}
       onContextMenu={openMenuAtPointer}
@@ -136,7 +253,7 @@ export function QuotaCard(props: QuotaCardProps) {
         <IconCloud size={18} className={styles.cloudIcon} />
       </span>
 
-      <div className={styles.identity} title={file.name}>
+      <HoverCard content={identityTooltip} className={styles.identity}>
         <span className={styles.email}>{identity}</span>
         <span className={styles.chips}>
           <span className={plan ? `${styles.chip} ${styles.planChip} ${planTierClass}` : styles.chipMuted}>
@@ -147,48 +264,13 @@ export function QuotaCard(props: QuotaCardProps) {
               <IconFlame size={11} aria-hidden="true" />
               {t('quota_management.burn_chip')}
               {burnRemaining && <span className={styles.chipDetail}>{burnRemaining}</span>}
-              {!burnRemaining && burnModeLabel && (
-                <span className={styles.chipDetail}>{burnModeLabel}</span>
-              )}
-              {burnRemaining && burnModeLabel && pin?.mode && (
-                <span className={styles.chipDetail}>{burnModeLabel}</span>
-              )}
+              {burnModeLabel && <span className={styles.chipDetail}>{burnModeLabel}</span>}
             </span>
           )}
         </span>
-      </div>
+      </HoverCard>
 
-      <div className={styles.body}>
-        {status === 'idle' ? (
-          <button
-            type="button"
-            className={styles.idleBody}
-            onClick={onRefresh}
-            disabled={!canRefresh}
-          >
-            <IconRefreshCw size={13} aria-hidden="true" className={styles.idleGlyph} />
-            <span className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</span>
-          </button>
-        ) : loading ? (
-          <div className={styles.skeleton} aria-busy="true">
-            <span className={styles.srOnly}>{t(`${adapter.i18nPrefix}.loading`)}</span>
-            {[0, 1].map((row) => (
-              <div key={row} className={styles.skeletonRow} aria-hidden="true">
-                <span className={styles.skeletonLabel} />
-                <span className={styles.skeletonTrack} />
-              </div>
-            ))}
-          </div>
-        ) : status === 'error' ? (
-          <div className={styles.errorStrip} role="alert">
-            {t(`${adapter.i18nPrefix}.load_failed`, { message: errorMessage })}
-          </div>
-        ) : quota ? (
-          <adapter.Body quota={quota} classes={quotaClasses} />
-        ) : (
-          <div className={styles.idleHint}>{t(`${adapter.i18nPrefix}.idle`)}</div>
-        )}
-      </div>
+      {renderCells()}
 
       <div className={styles.actions}>
         {status !== 'idle' && showReset && (
@@ -201,7 +283,6 @@ export function QuotaCard(props: QuotaCardProps) {
             aria-label={t('codex_quota.reset_button')}
           >
             <IconRefreshCw size={14} className={resetting ? styles.spinning : undefined} />
-            <span className={styles.iconButtonText}>{t('codex_quota.reset_button')}</span>
           </button>
         )}
         {status !== 'idle' && (

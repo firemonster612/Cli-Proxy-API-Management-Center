@@ -1200,7 +1200,13 @@
     "burn_chip_indefinite": "без срока",
     "burn_started": "Сжигание {{name}} включено: весь трафик провайдера идёт сюда",
     "burn_stopped": "Сжигание {{name}} остановлено",
-    "burn_missing_auth_index": "У учётных данных нет auth index, закрепить нельзя"
+    "burn_missing_auth_index": "У учётных данных нет auth index, закрепить нельзя",
+    "col_account": "Аккаунт",
+    "col_five_hour": "5 часов",
+    "col_weekly": "Неделя",
+    "col_weekly_model": "Неделя · модель",
+    "cell_resets_at": "Сброс",
+    "cell_reset_credits": "Кредиты ручного сброса"
   },
   "plugin_management": {
     "title": "Управление плагинами",
