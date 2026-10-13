@@ -25,6 +25,7 @@ import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaColumnsHeader } from './components/QuotaColumnsHeader';
+import { PoolSummary, type PoolCardData } from './components/PoolSummary';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
@@ -38,6 +39,11 @@ import type { QuotaProviderType } from './providers/types';
 import { useBurnPins } from './hooks/useBurnPins';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
+import { useRecentRequests } from './hooks/useRecentRequests';
+import { bankedResetsFor, type BankedResets } from './bankedResets';
+import { buildPoolSummary } from './pool';
+import { currentRoutes, groupActivityByAccount } from './routing';
+import { useNow } from '@/hooks/useNow';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
@@ -158,6 +164,62 @@ export function QuotaPage() {
     });
   }, [entries, loading]);
 
+  /* ---------- routing + pool ----------
+   * Activity comes from real completed requests; the pool aggregates every
+   * loaded account of a provider, not just the visible page. */
+
+  const now = useNow();
+  const { requests } = useRecentRequests(!disableControls);
+  const activityByAuth = useMemo(() => groupActivityByAccount(requests, now), [requests, now]);
+  const routes = useMemo(() => {
+    const typeByAuth = new Map(
+      entries.map((entry) => [String(entry.file.authIndex ?? ''), entry.type])
+    );
+    return currentRoutes(activityByAuth, now, (authIndex) => typeByAuth.get(authIndex));
+  }, [activityByAuth, entries, now]);
+  const [openDetails, setOpenDetails] = useState<Set<string>>(() => new Set());
+  const toggleDetails = useCallback((key: string) => {
+    setOpenDetails((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }, []);
+
+  const poolCards = useMemo<PoolCardData[]>(() => {
+    const providers = tab === 'all' ? QUOTA_TAB_ORDER : [tab];
+    return providers.flatMap((provider) => {
+      const providerEntries = entries.filter((entry) => entry.type === provider);
+      const summary = buildPoolSummary(
+        provider,
+        providerEntries.map((entry) => ({
+          key: entry.file.name,
+          label: entry.file.email || entry.file.name.replace(/\.json$/, ''),
+          authIndex: String(entry.file.authIndex ?? ''),
+          type: entry.type,
+          quota: getQuota(entry),
+        })),
+        now
+      );
+      if (!summary || summary.accounts.length === 0) return [];
+      const route = routes.get(provider);
+      const routeEntry = route
+        ? providerEntries.find((entry) => String(entry.file.authIndex ?? '') === route.authIndex)
+        : undefined;
+      const banked = providerEntries
+        .map((entry) => bankedResetsFor(entry.type, getQuota(entry)))
+        .filter((value): value is BankedResets => value !== null);
+      return [
+        {
+          summary,
+          route,
+          routeLabel: routeEntry ? routeEntry.file.email || routeEntry.file.name : null,
+          banked,
+        },
+      ];
+    });
+  }, [entries, getQuota, now, routes, tab]);
+
   /* ---------- 加载与操作 ---------- */
 
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
@@ -236,6 +298,8 @@ export function QuotaPage() {
         onRefreshAll={handleRefreshAll}
       />
 
+      {!loading && <PoolSummary cards={poolCards} resolvedTheme={resolvedTheme} />}
+
       <section className={styles.workbench}>
         <div className={styles.tabsRow} data-reveal>
           <ProviderTabs
@@ -282,25 +346,34 @@ export function QuotaPage() {
         ) : (
           <div className={styles.list}>
             <QuotaColumnsHeader />
-            {pageItems.map((entry, index) => (
-              <QuotaCard
-                key={`${entry.type}:${entry.file.name}`}
-                entry={entry}
-                quota={getQuota(entry)}
-                pin={pinFor(entry.file)}
-                canRefresh={canUseActions && !entry.file.disabled}
-                resetting={resettingQuotaName === entry.file.name}
-                burnBusy={
-                  disableControls ||
-                  (busyAuthIndex !== null && busyAuthIndex === String(entry.file.authIndex ?? ''))
-                }
-                entranceDelayMs={cardEntranceDelay(index)}
-                onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onBurn={(choice) => void burn(entry.file, choice)}
-                onStopBurning={() => void stopBurning(entry.file)}
-              />
-            ))}
+            {pageItems.map((entry, index) => {
+              const key = `${entry.type}:${entry.file.name}`;
+              const authIndex = String(entry.file.authIndex ?? '');
+              return (
+                <QuotaCard
+                  key={key}
+                  entry={entry}
+                  resolvedTheme={resolvedTheme}
+                  activity={activityByAuth.get(authIndex)}
+                  routedNow={routes.get(entry.type)?.authIndex === authIndex}
+                  detailsOpen={openDetails.has(key)}
+                  onToggleDetails={() => toggleDetails(key)}
+                  quota={getQuota(entry)}
+                  pin={pinFor(entry.file)}
+                  canRefresh={canUseActions && !entry.file.disabled}
+                  resetting={resettingQuotaName === entry.file.name}
+                  burnBusy={
+                    disableControls ||
+                    (busyAuthIndex !== null && busyAuthIndex === String(entry.file.authIndex ?? ''))
+                  }
+                  entranceDelayMs={cardEntranceDelay(index)}
+                  onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                  onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                  onBurn={(choice) => void burn(entry.file, choice)}
+                  onStopBurning={() => void stopBurning(entry.file)}
+                />
+              );
+            })}
           </div>
         )}
 

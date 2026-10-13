@@ -5,26 +5,45 @@
  * Claude and Codex map onto the three cells (see ../columns.ts). Other
  * providers keep their own body, spanning the three cell columns.
  *
+ * An account whose weekly window is exhausted is crossed out with a pen
+ * stroke, with a stamp saying when it comes back. The account currently
+ * receiving the provider's traffic gets a green edge; the activity button
+ * expands the requests it served (RoutingDetails).
+ *
  * Burn pins ("only burn this account") open from a right-click anywhere on
  * the row or from the flame button, independent of the quota load state.
  */
 
 import { useCallback, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { HoverCard } from '@/components/ui/HoverCard';
-import { IconCloud, IconFlame, IconRefreshCw } from '@/components/ui/icons';
+import {
+  IconActivity,
+  IconBuilding,
+  IconCloud,
+  IconFlame,
+  IconRefreshCw,
+} from '@/components/ui/icons';
 import type { BurnPin } from '@/services/api';
-import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
+import type { ClaudeQuotaState, CodexQuotaState, ResolvedTheme } from '@/types';
 import { useNow } from '@/hooks/useNow';
 import { buildResetDisplay, resolveQuotaErrorMessage, resolveResetMs } from '@/utils/quota';
 import { formatDateTimeValue } from '@/utils/format';
-import { getTypeLabel } from '@/features/authFiles/constants';
+import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
 import { buildQuotaColumns, hasQuotaColumns, isRunningLow } from '../columns';
 import { formatBurnRemaining, type BurnChoice } from '../hooks/useBurnPins';
+import { bankedResetsFor, supportsBankedResets } from '../bankedResets';
+import { isWeeklySpent } from '../pool';
+import { isLive, type AccountActivity } from '../routing';
+import { formatAgo, formatResetInstant, formatResetsIn } from '../timeCopy';
+import { pointUnder } from './anchorPoint';
+import { BankedResetsButton } from './BankedResets';
 import { BurnMenu } from './BurnMenu';
+import { RoutingDetails } from './RoutingDetails';
 import { QuotaCell } from './QuotaCell';
 import { quotaPlanLabel } from './planLabel';
 import bodyStyles from './QuotaBody.module.scss';
@@ -42,11 +61,20 @@ export type QuotaCardProps = {
   burnBusy: boolean;
   /** First-paint cascade delay; null = no entrance (tab switch / paging / refresh mounts). */
   entranceDelayMs?: number | null;
+  resolvedTheme: ResolvedTheme;
+  /** Requests this account served, from core's recent-request history. */
+  activity?: AccountActivity;
+  /** This account served the provider's newest request. */
+  routedNow: boolean;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
   onRefresh: () => void;
   onReset: () => void;
   onBurn: (choice: BurnChoice) => void;
   onStopBurning: () => void;
 };
+
+const columnLabelFallback = (t: TFunction) => t('quota_management.col_weekly');
 
 /** The email is the identity; the filename only disambiguates in the tooltip. */
 const identityFor = (name: string, email?: string): string =>
@@ -61,13 +89,18 @@ export function QuotaCard(props: QuotaCardProps) {
     resetting,
     burnBusy,
     entranceDelayMs,
+    resolvedTheme,
+    activity,
+    routedNow,
+    detailsOpen,
+    onToggleDetails,
     onRefresh,
     onReset,
     onBurn,
     onStopBurning,
   } = props;
   const { t, i18n } = useTranslation();
-  const now = useNow(Boolean(pin));
+  const now = useNow();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
 
@@ -85,10 +118,8 @@ export function QuotaCard(props: QuotaCardProps) {
     event.preventDefault();
     setMenuAt({ x: event.clientX, y: event.clientY });
   };
-  const openMenuUnderButton = (event: MouseEvent<HTMLButtonElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setMenuAt({ x: rect.right - 224, y: rect.bottom + 6 });
-  };
+  const openMenuUnderButton = (event: MouseEvent<HTMLButtonElement>) =>
+    setMenuAt(pointUnder(event.currentTarget, 224));
 
   const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
@@ -105,15 +136,24 @@ export function QuotaCard(props: QuotaCardProps) {
     quota?.errorStatus,
     quota?.error || t('common.unknown_error')
   );
-  const showReset =
-    status === 'success' &&
-    Boolean(adapter.resetQuota) &&
-    quota !== undefined &&
-    Boolean(adapter.canResetQuota?.(quota));
+  const banked = supportsBankedResets(entry.type) ? bankedResetsFor(entry.type, quota) : null;
+  const canUseBanked =
+    quota !== undefined && Boolean(adapter.resetQuota) && Boolean(adapter.canResetQuota?.(quota));
+  const providerIcon = getAuthFileIcon(entry.type, resolvedTheme);
+  const organizationName =
+    quota?.status === 'success' && (entry.type === 'claude' || entry.type === 'codex')
+      ? ((quota as ClaudeQuotaState | CodexQuotaState).organizationName ?? null)
+      : null;
+  const live = isLive(activity, now);
 
   const columns = buildQuotaColumns(entry.type, quota);
   const columnar = hasQuotaColumns(entry.type);
   const low = isRunningLow(columns);
+  const weekly = columns?.weekly ?? null;
+  const spent = status === 'success' && isWeeklySpent(weekly);
+  const spentWindowLabel = weekly?.labelKey
+    ? t(weekly.labelKey, weekly.labelParams)
+    : columnLabelFallback(t);
 
   const burning = Boolean(pin);
   const burnRemaining = pin ? formatBurnRemaining(pin, now) : null;
@@ -128,7 +168,8 @@ export function QuotaCard(props: QuotaCardProps) {
   const identity = identityFor(file.name, file.email);
 
   // Identity tooltip: filename always; Claude extra-usage spend when enabled.
-  const extraUsage = entry.type === 'claude' ? (quota as ClaudeQuotaState | undefined)?.extraUsage : null;
+  const extraUsage =
+    entry.type === 'claude' ? (quota as ClaudeQuotaState | undefined)?.extraUsage : null;
   const identityTooltip = (
     <div className={styles.tooltip}>
       <div className={styles.tooltipMono}>{file.name}</div>
@@ -143,7 +184,7 @@ export function QuotaCard(props: QuotaCardProps) {
     </div>
   );
 
-  // Codex weekly extras: subscription expiry and manual reset credits.
+  // Codex weekly extras: subscription expiry. Reset credits live in the banked pill.
   let weeklyExtras: ReactNode = null;
   if (entry.type === 'codex' && quota?.status === 'success') {
     const codex = quota as CodexQuotaState;
@@ -156,24 +197,13 @@ export function QuotaCard(props: QuotaCardProps) {
           i18n.resolvedLanguage
         )
       : null;
-    const credits = codex.rateLimitResetCreditsAvailableCount ?? null;
-    if (expiry || credits !== null) {
+    if (expiry) {
       weeklyExtras = (
-        <>
-          {expiry && (
-            <div>
-              {t('codex_quota.expires_label')}{' '}
-              <span className={styles.tooltipMono}>{expiry.absolute}</span>
-              {expiry.relative && <span className={styles.tooltipMuted}> · {expiry.relative}</span>}
-            </div>
-          )}
-          {credits !== null && (
-            <div>
-              {t('quota_management.cell_reset_credits')}{' '}
-              <span className={styles.tooltipMono}>{credits}</span>
-            </div>
-          )}
-        </>
+        <div>
+          {t('codex_quota.expires_label')}{' '}
+          <span className={styles.tooltipMono}>{expiry.absolute}</span>
+          {expiry.relative && <span className={styles.tooltipMuted}> · {expiry.relative}</span>}
+        </div>
       );
     }
   }
@@ -223,7 +253,11 @@ export function QuotaCard(props: QuotaCardProps) {
       return (
         <>
           <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} />
-          <QuotaCell cell={columns.weekly} columnLabel={columnLabels.weekly} extras={weeklyExtras} />
+          <QuotaCell
+            cell={columns.weekly}
+            columnLabel={columnLabels.weekly}
+            extras={weeklyExtras}
+          />
           <QuotaCell cell={columns.weeklyModel} columnLabel={columnLabels.weeklyModel} />
         </>
       );
@@ -245,20 +279,37 @@ export function QuotaCard(props: QuotaCardProps) {
         mountEntranceDelayMs === null ? '' : styles.cardEnter,
         burning ? styles.burning : '',
         low ? styles.low : '',
+        spent ? styles.spent : '',
+        routedNow && live ? styles.routed : '',
       ].join(' ')}
       style={entranceStyle}
       onContextMenu={openMenuAtPointer}
     >
       <span className={styles.iconWrap} title={typeLabel}>
-        <IconCloud size={18} className={styles.cloudIcon} />
+        {providerIcon ? (
+          <img src={providerIcon} alt="" className={styles.providerIcon} />
+        ) : (
+          <IconCloud size={18} className={styles.cloudIcon} />
+        )}
+        {live && <span className={styles.liveBadge} aria-hidden="true" />}
       </span>
 
       <HoverCard content={identityTooltip} className={styles.identity}>
         <span className={styles.email}>{identity}</span>
         <span className={styles.chips}>
-          <span className={plan ? `${styles.chip} ${styles.planChip} ${planTierClass}` : styles.chipMuted}>
+          <span
+            className={
+              plan ? `${styles.chip} ${styles.planChip} ${planTierClass}` : styles.chipMuted
+            }
+          >
             {plan?.label ?? typeLabel}
           </span>
+          {organizationName && (
+            <span className={`${styles.chip} ${styles.orgChip}`} title={organizationName}>
+              <IconBuilding size={11} aria-hidden="true" />
+              <span className={styles.orgName}>{organizationName}</span>
+            </span>
+          )}
           {burning && (
             <span className={`${styles.chip} ${styles.burnChip}`}>
               <IconFlame size={11} aria-hidden="true" />
@@ -268,22 +319,52 @@ export function QuotaCard(props: QuotaCardProps) {
             </span>
           )}
         </span>
+        {activity && (
+          <span className={live ? styles.activityLive : styles.activityIdle}>
+            {live
+              ? t('quota_management.routing_live', { ago: formatAgo(activity.lastAtMs, now, t) })
+              : t('quota_management.routing_last', { ago: formatAgo(activity.lastAtMs, now, t) })}
+          </span>
+        )}
       </HoverCard>
 
       {renderCells()}
 
-      <div className={styles.actions}>
-        {status !== 'idle' && showReset && (
-          <button
-            type="button"
-            className={styles.iconButton}
-            onClick={onReset}
-            disabled={!canRefresh || loading || resetting}
-            title={t('codex_quota.reset_button')}
-            aria-label={t('codex_quota.reset_button')}
+      {spent && weekly?.resetAtMs != null && (
+        <>
+          <svg
+            className={styles.penStroke}
+            viewBox="0 0 1000 40"
+            preserveAspectRatio="none"
+            aria-hidden="true"
           >
-            <IconRefreshCw size={14} className={resetting ? styles.spinning : undefined} />
-          </button>
+            <path
+              pathLength={1}
+              d="M4 31 C 140 29, 260 23, 430 22 S 700 15, 830 14 S 950 9, 996 8"
+            />
+            <path pathLength={1} d="M16 36 C 210 31, 400 30, 590 25 S 880 18, 988 15" />
+          </svg>
+          <div className={styles.spentStamp} role="status">
+            <span className={styles.spentTitle}>
+              {t('quota_management.spent_title', { window: spentWindowLabel })}
+            </span>
+            <span className={styles.spentRelative}>{formatResetsIn(weekly.resetAtMs, now, t)}</span>
+            <span className={styles.spentExact}>
+              {formatResetInstant(weekly.resetAtMs, i18n.resolvedLanguage)}
+            </span>
+          </div>
+        </>
+      )}
+
+      <div className={styles.actions}>
+        {banked && (
+          <BankedResetsButton
+            banked={banked}
+            accountLabel={identity}
+            canUse={canRefresh && !loading && canUseBanked}
+            using={resetting}
+            onUse={onReset}
+          />
         )}
         {status !== 'idle' && (
           <button
@@ -299,6 +380,17 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
         <button
           type="button"
+          data-shot="routing-toggle"
+          className={`${styles.iconButton} ${detailsOpen ? styles.iconButtonActive : ''}`}
+          onClick={onToggleDetails}
+          title={t('quota_management.routing_toggle')}
+          aria-label={t('quota_management.routing_toggle')}
+          aria-expanded={detailsOpen}
+        >
+          <IconActivity size={14} />
+        </button>
+        <button
+          type="button"
           className={`${styles.iconButton} ${burning ? styles.iconButtonBurning : ''}`}
           onClick={openMenuUnderButton}
           disabled={burnBusy}
@@ -310,6 +402,12 @@ export function QuotaCard(props: QuotaCardProps) {
           <IconFlame size={14} />
         </button>
       </div>
+
+      {detailsOpen && (
+        <div className={styles.detailsSlot}>
+          <RoutingDetails activity={activity} />
+        </div>
+      )}
 
       {menuAt && (
         <BurnMenu

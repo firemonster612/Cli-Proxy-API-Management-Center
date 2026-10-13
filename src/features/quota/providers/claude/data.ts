@@ -12,7 +12,8 @@ import type {
   ClaudeQuotaWindow,
   ClaudeUsagePayload,
 } from '@/types';
-import { apiCallApi, getApiCallErrorMessage } from '@/services/api';
+import { apiCallApi, getApiCallErrorMessage, quotaInsightsApi } from '@/services/api';
+import type { ClaudeBankedResetStatus } from '@/services/api';
 import {
   CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
@@ -30,12 +31,19 @@ import {
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
+import { bankedResetsFor } from '../../bankedResets';
 
 export type ClaudeQuotaData = {
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
   planType?: string | null;
+  rateLimitTier?: string | null;
+  organizationName?: string | null;
+  bankedResets?: ClaudeBankedResetStatus | null;
 };
+
+/** Personal accounts also carry an organization ("x's Organization"); only shared ones are worth naming. */
+const SHARED_ORGANIZATION_TYPES = new Set(['claude_team', 'claude_enterprise']);
 
 const findFableUsageLimit = (payload: ClaudeUsagePayload) => {
   if (!Array.isArray(payload.limits)) return null;
@@ -132,7 +140,12 @@ const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | 
   if (!profile) return null;
 
   const hasClaudeMax = normalizeFlagValue(profile.account?.has_claude_max);
-  if (hasClaudeMax) return 'plan_max';
+  if (hasClaudeMax) {
+    const multiple = /(\d+)x\b/i.exec(profile.organization?.rate_limit_tier ?? '');
+    if (multiple?.[1] === '5') return 'plan_max5';
+    if (multiple?.[1] === '20') return 'plan_max20';
+    return 'plan_max';
+  }
 
   const hasClaudePro = normalizeFlagValue(profile.account?.has_claude_pro);
   if (hasClaudePro) return 'plan_pro';
@@ -160,7 +173,7 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
     throw new Error(t('claude_quota.missing_auth_index'));
   }
 
-  const [usageResult, profileResult] = await Promise.allSettled([
+  const [usageResult, profileResult, bankedResult] = await Promise.allSettled([
     apiCallApi.request({
       authIndex,
       method: 'GET',
@@ -173,6 +186,7 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
       url: CLAUDE_PROFILE_URL,
       header: { ...CLAUDE_REQUEST_HEADERS },
     }),
+    quotaInsightsApi.claudeBankedResets(authIndex),
   ]);
 
   if (usageResult.status === 'rejected') {
@@ -191,16 +205,27 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
   }
 
   const windows = buildClaudeQuotaWindows(payload, t);
-  const planType =
+  const profile =
     profileResult.status === 'fulfilled' &&
     profileResult.value.statusCode >= 200 &&
     profileResult.value.statusCode < 300
-      ? resolveClaudePlanType(
-          parseClaudeProfilePayload(profileResult.value.body ?? profileResult.value.bodyText)
-        )
+      ? parseClaudeProfilePayload(profileResult.value.body ?? profileResult.value.bodyText)
+      : null;
+  const organizationType = normalizeStringValue(profile?.organization?.organization_type);
+  const organizationName =
+    organizationType && SHARED_ORGANIZATION_TYPES.has(organizationType.toLowerCase())
+      ? normalizeStringValue(profile?.organization?.name)
       : null;
 
-  return { windows, extraUsage: payload.extra_usage, planType };
+  return {
+    windows,
+    extraUsage: payload.extra_usage,
+    planType: resolveClaudePlanType(profile),
+    rateLimitTier: normalizeStringValue(profile?.organization?.rate_limit_tier),
+    organizationName,
+    // Banked resets are optional extras: a failed lookup must not fail the row.
+    bankedResets: bankedResult.status === 'fulfilled' ? bankedResult.value : null,
+  };
 };
 
 export const CLAUDE_CONFIG: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData> = {
@@ -216,7 +241,20 @@ export const CLAUDE_CONFIG: QuotaProviderData<ClaudeQuotaState, ClaudeQuotaData>
     windows: data.windows,
     extraUsage: data.extraUsage,
     planType: data.planType,
+    rateLimitTier: data.rateLimitTier,
+    organizationName: data.organizationName,
+    bankedResets: data.bankedResets,
   }),
+  resetQuota: async (file, t) => {
+    const authIndex = normalizeAuthIndex(file['auth_index'] ?? file.authIndex);
+    if (!authIndex) throw new Error(t('claude_quota.missing_auth_index'));
+    const { claim } = await quotaInsightsApi.useClaudeBankedReset(authIndex);
+    if (claim?.result && claim.result !== 'reset') {
+      throw new Error(claim.reason || claim.result);
+    }
+    return fetchClaudeQuota(file, t);
+  },
+  canResetQuota: (quota) => (bankedResetsFor('claude', quota)?.available ?? 0) > 0,
   buildErrorState: (message, status) => ({
     status: 'error',
     windows: [],
