@@ -4,10 +4,13 @@
  * Server side: core/internal/api/handlers/management (recent-requests, claude_banked_resets.go).
  */
 
+import type { ClaudeBankedResetStatus } from '@/types';
 import { apiClient } from './client';
 
 export interface RecentRequest {
-  timeMs: number;
+  startedAtMs: number;
+  /** When the record was published; a long stream completes well after it starts. */
+  completedAtMs: number;
   provider: string;
   authIndex: string;
   model: string;
@@ -18,8 +21,15 @@ export interface RecentRequest {
   outputTokens: number | null;
 }
 
+export interface RecentRequests {
+  /** Mirrors `usage-statistics-enabled`: when false, core records no history. */
+  enabled: boolean;
+  requests: RecentRequest[];
+}
+
 type RawRecentRequest = {
   timestamp?: string;
+  completed_at?: string;
   provider?: string;
   auth_index?: string | number;
   model?: string;
@@ -35,11 +45,13 @@ const finiteOrNull = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 const normalizeRecentRequest = (raw: RawRecentRequest): RecentRequest | null => {
-  const timeMs = Date.parse(raw.timestamp ?? '');
+  const startedAtMs = Date.parse(raw.timestamp ?? '');
   const authIndex = raw.auth_index === undefined ? '' : String(raw.auth_index);
-  if (!Number.isFinite(timeMs) || authIndex === '') return null;
+  if (!Number.isFinite(startedAtMs) || authIndex === '') return null;
+  const completedAtMs = Date.parse(raw.completed_at ?? '');
   return {
-    timeMs,
+    startedAtMs,
+    completedAtMs: Number.isFinite(completedAtMs) ? completedAtMs : startedAtMs,
     provider: (raw.provider ?? '').toLowerCase(),
     authIndex,
     model: raw.model || raw.alias || '?',
@@ -51,29 +63,19 @@ const normalizeRecentRequest = (raw: RawRecentRequest): RecentRequest | null => 
   };
 };
 
-export interface ClaudeBankedResetGrant {
-  id?: string;
-  resets_left?: number;
-  usable_now?: boolean;
-  paused?: boolean;
-  [key: string]: unknown;
-}
-
-export interface ClaudeBankedResetStatus {
-  next_grant_id?: string;
-  eligible?: boolean;
-  grants?: ClaudeBankedResetGrant[];
-  [key: string]: unknown;
-}
-
 export const quotaInsightsApi = {
-  recentRequests: async (limit = 2000): Promise<RecentRequest[]> => {
-    const data = await apiClient.get<{ requests?: RawRecentRequest[] }>('/recent-requests', {
-      params: { limit },
-    });
-    return (data?.requests ?? [])
-      .map(normalizeRecentRequest)
-      .filter((request): request is RecentRequest => request !== null);
+  recentRequests: async (limit = 500): Promise<RecentRequests> => {
+    const data = await apiClient.get<{ enabled?: boolean; requests?: RawRecentRequest[] }>(
+      '/recent-requests',
+      { params: { limit } }
+    );
+    return {
+      // A core that predates the flag can't say; assume history is on.
+      enabled: data?.enabled !== false,
+      requests: (data?.requests ?? [])
+        .map(normalizeRecentRequest)
+        .filter((request): request is RecentRequest => request !== null),
+    };
   },
   claudeBankedResets: async (authIndex: string): Promise<ClaudeBankedResetStatus | null> => {
     const data = await apiClient.get<{ banked_resets?: ClaudeBankedResetStatus | null }>(

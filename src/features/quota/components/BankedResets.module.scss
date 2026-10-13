@@ -61,10 +61,17 @@
 
 .panel {
   width: 308px;
+  /* Stays on screen however many resets there are; the list scrolls instead. */
+  max-height: min(520px, calc(100vh - 40px));
   padding: 6px 6px 4px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  /* Only the list gives up height; everything else keeps its own. */
+  > :not(.list) {
+    flex: none;
+  }
 }
 
 .header {
@@ -107,6 +114,9 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 4px;

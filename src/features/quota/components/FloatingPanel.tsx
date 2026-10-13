@@ -1,7 +1,7 @@
 /**
  * Popover opened at a screen point (right-click) or under an anchor button.
  * Shifts to stay inside the viewport; closes on outside click, Escape,
- * scroll, or resize. Portaled to body so row overflow cannot clip it.
+ * page scroll, or resize. Scrolling inside the panel keeps it open. Portaled to body so row overflow cannot clip it.
  */
 
 import {
@@ -58,14 +58,17 @@ export function FloatingPanel({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
+    const onScroll = (event: Event) => {
+      if (!ref.current?.contains(event.target as Node)) onClose();
+    };
     document.addEventListener('mousedown', onPointerDown, true);
     document.addEventListener('keydown', onKeyDown, true);
-    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onClose);
     return () => {
       document.removeEventListener('mousedown', onPointerDown, true);
       document.removeEventListener('keydown', onKeyDown, true);
-      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onClose);
     };
   }, [onClose]);

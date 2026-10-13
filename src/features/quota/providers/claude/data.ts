@@ -6,6 +6,7 @@
 import type { TFunction } from 'i18next';
 import type {
   AuthFileItem,
+  ClaudeBankedResetStatus,
   ClaudeExtraUsage,
   ClaudeProfileResponse,
   ClaudeQuotaState,
@@ -13,7 +14,6 @@ import type {
   ClaudeUsagePayload,
 } from '@/types';
 import { apiCallApi, getApiCallErrorMessage, quotaInsightsApi } from '@/services/api';
-import type { ClaudeBankedResetStatus } from '@/services/api';
 import {
   CLAUDE_PROFILE_URL,
   CLAUDE_USAGE_URL,
@@ -136,7 +136,7 @@ const parseClaudeProfilePayload = (payload: unknown): ClaudeProfileResponse | nu
   return null;
 };
 
-const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | null => {
+export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | null => {
   if (!profile) return null;
 
   const hasClaudeMax = normalizeFlagValue(profile.account?.has_claude_max);
@@ -164,6 +164,17 @@ const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | 
   if (hasClaudeMax === false && hasClaudePro === false) return 'plan_free';
 
   return null;
+};
+
+/** The organization name for Team/Enterprise accounts, else null. */
+export const resolveClaudeOrganizationName = (
+  profile: ClaudeProfileResponse | null
+): string | null => {
+  const organizationType = normalizeStringValue(profile?.organization?.organization_type);
+  if (!organizationType || !SHARED_ORGANIZATION_TYPES.has(organizationType.toLowerCase())) {
+    return null;
+  }
+  return normalizeStringValue(profile?.organization?.name);
 };
 
 const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<ClaudeQuotaData> => {
@@ -211,18 +222,13 @@ const fetchClaudeQuota = async (file: AuthFileItem, t: TFunction): Promise<Claud
     profileResult.value.statusCode < 300
       ? parseClaudeProfilePayload(profileResult.value.body ?? profileResult.value.bodyText)
       : null;
-  const organizationType = normalizeStringValue(profile?.organization?.organization_type);
-  const organizationName =
-    organizationType && SHARED_ORGANIZATION_TYPES.has(organizationType.toLowerCase())
-      ? normalizeStringValue(profile?.organization?.name)
-      : null;
 
   return {
     windows,
     extraUsage: payload.extra_usage,
     planType: resolveClaudePlanType(profile),
     rateLimitTier: normalizeStringValue(profile?.organization?.rate_limit_tier),
-    organizationName,
+    organizationName: resolveClaudeOrganizationName(profile),
     // Banked resets are optional extras: a failed lookup must not fail the row.
     bankedResets: bankedResult.status === 'fulfilled' ? bankedResult.value : null,
   };

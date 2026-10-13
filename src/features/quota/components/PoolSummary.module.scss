@@ -101,6 +101,12 @@
   color: var(--text-secondary);
 }
 
+/* The total leaves these accounts out, so flag it rather than mute it. */
+.partial {
+  color: var(--quota-medium-color);
+  font-weight: 600;
+}
+
 .segments {
   display: grid;
   gap: 3px;

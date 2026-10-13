@@ -1226,7 +1226,6 @@
     "col_weekly": "每周",
     "col_weekly_model": "每周 · 模型",
     "cell_resets_at": "重置于",
-    "cell_reset_credits": "手动重置积分",
     "unit_day_other": "{{count}} 天",
     "unit_hour_other": "{{count}} 小时",
     "unit_minute_other": "{{count}} 分钟",
@@ -1269,7 +1268,13 @@
     "pool_restores": "额度池 +{{percent}}",
     "pool_no_reset_week": "未来 7 天内没有周额度重置",
     "pool_banked_other": "{{count}} 次储备重置",
-    "pool_estimate_note": "额度池按各账号的套餐倍数加权（Max 20x 计为 20，Pro 5x 计为 5）。倍数为官方宣称值而非实测，总数仅供估算。"
+    "pool_estimate_note": "额度池按各账号的套餐倍数加权：Claude Max 20x 计为 20，Max 5x 计为 5；ChatGPT Pro 计为 20，Pro 5x（prolite）计为 5，Plus 和 Team 计为 1。倍数为官方宣称值而非实测，总数仅供估算。",
+    "routing_history_disabled": "路由信息需要使用统计。请在代理配置中开启 usage-statistics-enabled。",
+    "routing_ok": "成功",
+    "banked_details_failed": "无法加载这些重置的详情。",
+    "pool_not_loaded": "{{count}} 个未加载",
+    "pool_monthly_excluded_other": "{{count}} 个按月限额的账号未计入",
+    "pool_banked_next_expiry": "最近一次{{duration}}后过期"
   },
   "plugin_management": {
     "title": "插件管理",

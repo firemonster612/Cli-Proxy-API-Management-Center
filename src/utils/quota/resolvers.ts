@@ -48,23 +48,13 @@ export function resolveCodexChatgptAccountId(file: AuthFileItem): string | null 
   return null;
 }
 
-/**
- * Workspace title from the id_token: core's decoded `organization_title`, or the
- * default (else first) entry of the raw JWT's `organizations[]`.
- */
+/** Workspace title core decodes from the id_token (`organization_title`). */
 export function resolveCodexOrganizationTitle(file: AuthFileItem): string | null {
   const metadata = toRecord(file.metadata);
   const attributes = toRecord(file.attributes);
   for (const candidate of [file.id_token, metadata?.id_token, attributes?.id_token]) {
-    const decoded = toRecord(candidate);
-    const title = normalizeStringValue(decoded?.organization_title);
+    const title = normalizeStringValue(toRecord(candidate)?.organization_title);
     if (title) return title;
-    const organizations = resolveCodexAuthInfo(candidate)?.organizations;
-    if (!Array.isArray(organizations)) continue;
-    const records = organizations.map(toRecord).filter((org) => org !== null);
-    const chosen = records.find((org) => org.is_default === true) ?? records[0];
-    const chosenTitle = normalizeStringValue(chosen?.title);
-    if (chosenTitle) return chosenTitle;
   }
   return null;
 }

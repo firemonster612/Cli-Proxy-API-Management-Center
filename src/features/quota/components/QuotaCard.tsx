@@ -16,7 +16,6 @@
 
 import { useCallback, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { HoverCard } from '@/components/ui/HoverCard';
 import {
   IconActivity,
@@ -66,6 +65,8 @@ export type QuotaCardProps = {
   activity?: AccountActivity;
   /** This account served the provider's newest request. */
   routedNow: boolean;
+  /** False when core's usage statistics are off, so no routing data exists. */
+  historyEnabled: boolean;
   detailsOpen: boolean;
   onToggleDetails: () => void;
   onRefresh: () => void;
@@ -73,8 +74,6 @@ export type QuotaCardProps = {
   onBurn: (choice: BurnChoice) => void;
   onStopBurning: () => void;
 };
-
-const columnLabelFallback = (t: TFunction) => t('quota_management.col_weekly');
 
 /** The email is the identity; the filename only disambiguates in the tooltip. */
 const identityFor = (name: string, email?: string): string =>
@@ -92,6 +91,7 @@ export function QuotaCard(props: QuotaCardProps) {
     resolvedTheme,
     activity,
     routedNow,
+    historyEnabled,
     detailsOpen,
     onToggleDetails,
     onRefresh,
@@ -100,9 +100,15 @@ export function QuotaCard(props: QuotaCardProps) {
     onStopBurning,
   } = props;
   const { t, i18n } = useTranslation();
-  const now = useNow();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
+  const status = quota?.status ?? 'idle';
+  const columns = buildQuotaColumns(entry.type, quota);
+  const weekly = columns?.weekly ?? null;
+  const spent = status === 'success' && isWeeklySpent(weekly);
+  const burning = Boolean(pin);
+  // Only rows with a countdown or a recency label need the minute tick.
+  const now = useNow(burning || spent || activity !== undefined);
 
   // Capture the delay once on mount: later prop changes to null must not
   // affect this card (React 19 forbids reading refs during render).
@@ -121,7 +127,6 @@ export function QuotaCard(props: QuotaCardProps) {
   const openMenuUnderButton = (event: MouseEvent<HTMLButtonElement>) =>
     setMenuAt(pointUnder(event.currentTarget, 224));
 
-  const status = quota?.status ?? 'idle';
   const loading = status === 'loading';
   const typeLabel = getTypeLabel(t, entry.type);
   const plan = quotaPlanLabel(entry.type, quota, t);
@@ -146,16 +151,12 @@ export function QuotaCard(props: QuotaCardProps) {
       : null;
   const live = isLive(activity, now);
 
-  const columns = buildQuotaColumns(entry.type, quota);
   const columnar = hasQuotaColumns(entry.type);
   const low = isRunningLow(columns);
-  const weekly = columns?.weekly ?? null;
-  const spent = status === 'success' && isWeeklySpent(weekly);
   const spentWindowLabel = weekly?.labelKey
     ? t(weekly.labelKey, weekly.labelParams)
-    : columnLabelFallback(t);
+    : t('quota_management.col_weekly');
 
-  const burning = Boolean(pin);
   const burnRemaining = pin ? formatBurnRemaining(pin, now) : null;
   const burnModeLabel =
     pin?.mode === 'five-hour-reset'
@@ -330,7 +331,7 @@ export function QuotaCard(props: QuotaCardProps) {
 
       {renderCells()}
 
-      {spent && weekly?.resetAtMs != null && (
+      {spent && (
         <>
           <svg
             className={styles.penStroke}
@@ -348,10 +349,14 @@ export function QuotaCard(props: QuotaCardProps) {
             <span className={styles.spentTitle}>
               {t('quota_management.spent_title', { window: spentWindowLabel })}
             </span>
-            <span className={styles.spentRelative}>{formatResetsIn(weekly.resetAtMs, now, t)}</span>
-            <span className={styles.spentExact}>
-              {formatResetInstant(weekly.resetAtMs, i18n.resolvedLanguage)}
-            </span>
+            {weekly?.resetAtMs != null && (
+              <>
+                <span className={styles.spentRelative}>
+                  {formatResetsIn(weekly.resetAtMs, now, t)}
+                </span>
+                <span className={styles.spentExact}>{formatResetInstant(weekly.resetAtMs)}</span>
+              </>
+            )}
           </div>
         </>
       )}
@@ -380,7 +385,6 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
         <button
           type="button"
-          data-shot="routing-toggle"
           className={`${styles.iconButton} ${detailsOpen ? styles.iconButtonActive : ''}`}
           onClick={onToggleDetails}
           title={t('quota_management.routing_toggle')}
@@ -405,7 +409,7 @@ export function QuotaCard(props: QuotaCardProps) {
 
       {detailsOpen && (
         <div className={styles.detailsSlot}>
-          <RoutingDetails activity={activity} />
+          <RoutingDetails activity={activity} historyEnabled={historyEnabled} />
         </div>
       )}
 

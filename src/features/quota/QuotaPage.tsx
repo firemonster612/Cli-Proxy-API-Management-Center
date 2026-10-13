@@ -3,8 +3,9 @@
  * credential with bars aligned in columns.
  *
  * Behavior contracts:
- * - Auto-load: the current page's quotas are fetched when the file list
- *   settles, every QUOTA_AUTO_REFRESH_MS, and when the tab regains focus;
+ * - Auto-load: the current page's quotas, plus every account the pool totals,
+ *   are fetched when the file list settles, every QUOTA_AUTO_REFRESH_MS, and
+ *   when the tab regains focus;
  * - cacheGeneration session isolation + request-id dedupe (useQuotaBatchLoader);
  * - the per-provider quota cache is pruned to files that still exist;
  * - useHeaderRefresh single slot: this page is its only registrant, and a
@@ -35,6 +36,7 @@ import {
 import { buildTabCounts, classifyQuotaFiles, filterEntriesByTab, paginate } from './logic';
 import type { QuotaFileEntry } from './logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
+import { hasQuotaColumns } from './columns';
 import type { QuotaProviderType } from './providers/types';
 import { useBurnPins } from './hooks/useBurnPins';
 import { useQuotaActions } from './hooks/useQuotaActions';
@@ -51,6 +53,8 @@ const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 4;
 /** Usage windows move slowly; five minutes keeps the board current without churn. */
 const QUOTA_AUTO_REFRESH_MS = 5 * 60_000;
+
+const entryKey = (entry: QuotaFileEntry) => `${entry.type}:${entry.file.name}`;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -166,10 +170,10 @@ export function QuotaPage() {
 
   /* ---------- routing + pool ----------
    * Activity comes from real completed requests; the pool aggregates every
-   * loaded account of a provider, not just the visible page. */
+   * account of the providers it shows, not just the visible page. */
 
   const now = useNow();
-  const { requests } = useRecentRequests(!disableControls);
+  const { enabled: historyEnabled, requests } = useRecentRequests(!disableControls);
   const activityByAuth = useMemo(() => groupActivityByAccount(requests, now), [requests, now]);
   const routes = useMemo(() => {
     const typeByAuth = new Map(
@@ -186,10 +190,42 @@ export function QuotaPage() {
     });
   }, []);
 
+  // The pool keeps each account's last loaded quota while a refresh is in
+  // flight, so the totals don't drop out and flicker on every reload.
+  // Updated during render (React's "storing information from previous renders").
+  const [settledQuota, setSettledQuota] = useState<Record<string, QuotaCardState>>({});
+  const [settledFrom, setSettledFrom] = useState(quotaByType);
+  if (settledFrom !== quotaByType) {
+    setSettledFrom(quotaByType);
+    setSettledQuota((prev) => {
+      const next = { ...prev };
+      Object.entries(quotaByType).forEach(([type, byName]) =>
+        Object.entries(byName).forEach(([name, state]) => {
+          if (state.status === 'success') next[`${type}:${name}`] = state;
+        })
+      );
+      return next;
+    });
+  }
+  const getPoolQuota = useCallback(
+    (entry: QuotaFileEntry): QuotaCardState | undefined => {
+      const current = getQuota(entry);
+      return current?.status === 'loading'
+        ? (settledQuota[`${entry.type}:${entry.file.name}`] ?? current)
+        : current;
+    },
+    [getQuota, settledQuota]
+  );
+
+  const poolEntries = useMemo(
+    () => filteredEntries.filter((entry) => hasQuotaColumns(entry.type)),
+    [filteredEntries]
+  );
+
   const poolCards = useMemo<PoolCardData[]>(() => {
     const providers = tab === 'all' ? QUOTA_TAB_ORDER : [tab];
     return providers.flatMap((provider) => {
-      const providerEntries = entries.filter((entry) => entry.type === provider);
+      const providerEntries = poolEntries.filter((entry) => entry.type === provider);
       const summary = buildPoolSummary(
         provider,
         providerEntries.map((entry) => ({
@@ -197,7 +233,7 @@ export function QuotaPage() {
           label: entry.file.email || entry.file.name.replace(/\.json$/, ''),
           authIndex: String(entry.file.authIndex ?? ''),
           type: entry.type,
-          quota: getQuota(entry),
+          quota: getPoolQuota(entry),
         })),
         now
       );
@@ -207,7 +243,7 @@ export function QuotaPage() {
         ? providerEntries.find((entry) => String(entry.file.authIndex ?? '') === route.authIndex)
         : undefined;
       const banked = providerEntries
-        .map((entry) => bankedResetsFor(entry.type, getQuota(entry)))
+        .map((entry) => bankedResetsFor(entry.type, getPoolQuota(entry)))
         .filter((value): value is BankedResets => value !== null);
       return [
         {
@@ -218,7 +254,7 @@ export function QuotaPage() {
         },
       ];
     });
-  }, [entries, getQuota, now, routes, tab]);
+  }, [getPoolQuota, now, poolEntries, routes, tab]);
 
   /* ---------- 加载与操作 ---------- */
 
@@ -233,26 +269,30 @@ export function QuotaPage() {
   }, [disableControls, loadFiles]);
 
   /* ---------- auto-load ----------
-   * Whenever the set of rows on screen changes (first load, tab, page,
-   * refresh-all), fetch their quotas. Then keep them fresh on a timer and
-   * when the tab comes back into view. The batch loader dedupes overlapping
-   * runs. */
-  const pageKey = pageItems.map((entry) => `${entry.type}:${entry.file.name}`).join('|');
-  const pageItemsRef = useRef(pageItems);
+   * Whenever the rows on screen or the pool's accounts change (first load,
+   * tab, page, refresh-all), fetch their quotas in one batch. Then keep them
+   * fresh on a timer and when the tab comes back into view. The batch loader
+   * drops a run that overlaps one in flight. */
+  const loadTargets = useMemo(() => {
+    const onPage = new Set(pageItems.map(entryKey));
+    return [...pageItems, ...poolEntries.filter((entry) => !onPage.has(entryKey(entry)))];
+  }, [pageItems, poolEntries]);
+  const loadKey = loadTargets.map(entryKey).join('|');
+  const loadTargetsRef = useRef(loadTargets);
   useEffect(() => {
-    pageItemsRef.current = pageItems;
-  }, [pageItems]);
+    loadTargetsRef.current = loadTargets;
+  }, [loadTargets]);
 
   useEffect(() => {
-    if (loading || disableControls || pageKey === '') return;
-    void loadQuota(pageItemsRef.current);
-  }, [loading, disableControls, pageKey, loadQuota]);
+    if (loading || disableControls || loadKey === '') return;
+    void loadQuota(loadTargetsRef.current);
+  }, [loading, disableControls, loadKey, loadQuota]);
 
   useEffect(() => {
     if (disableControls) return;
     const refetch = () => {
       if (document.visibilityState !== 'visible') return;
-      void loadQuota(pageItemsRef.current);
+      void loadQuota(loadTargetsRef.current);
     };
     const timer = setInterval(refetch, QUOTA_AUTO_REFRESH_MS);
     document.addEventListener('visibilitychange', refetch);
@@ -298,7 +338,13 @@ export function QuotaPage() {
         onRefreshAll={handleRefreshAll}
       />
 
-      {!loading && <PoolSummary cards={poolCards} resolvedTheme={resolvedTheme} />}
+      {!loading && (
+        <PoolSummary
+          cards={poolCards}
+          historyEnabled={historyEnabled}
+          resolvedTheme={resolvedTheme}
+        />
+      )}
 
       <section className={styles.workbench}>
         <div className={styles.tabsRow} data-reveal>
@@ -347,7 +393,7 @@ export function QuotaPage() {
           <div className={styles.list}>
             <QuotaColumnsHeader />
             {pageItems.map((entry, index) => {
-              const key = `${entry.type}:${entry.file.name}`;
+              const key = entryKey(entry);
               const authIndex = String(entry.file.authIndex ?? '');
               return (
                 <QuotaCard
@@ -356,6 +402,7 @@ export function QuotaPage() {
                   resolvedTheme={resolvedTheme}
                   activity={activityByAuth.get(authIndex)}
                   routedNow={routes.get(entry.type)?.authIndex === authIndex}
+                  historyEnabled={historyEnabled}
                   detailsOpen={openDetails.has(key)}
                   onToggleDetails={() => toggleDetails(key)}
                   quota={getQuota(entry)}

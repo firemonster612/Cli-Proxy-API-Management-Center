@@ -4,28 +4,31 @@
  */
 
 import { useEffect, useState } from 'react';
-import { quotaInsightsApi, type RecentRequest } from '@/services/api';
+import { quotaInsightsApi, type RecentRequests } from '@/services/api';
 
 const POLL_MS = 20_000;
+const EMPTY: RecentRequests = { enabled: true, requests: [] };
 
-export function useRecentRequests(enabled: boolean): {
-  requests: RecentRequest[];
-  supported: boolean;
-} {
-  const [requests, setRequests] = useState<RecentRequest[]>([]);
+export function useRecentRequests(active: boolean): RecentRequests & { supported: boolean } {
+  const [history, setHistory] = useState<RecentRequests>(EMPTY);
   const [supported, setSupported] = useState(true);
 
   useEffect(() => {
-    if (!enabled || !supported) return;
+    if (!active || !supported) return;
     let cancelled = false;
+    // One request at a time, so a slow response can't land after a newer one.
+    let inFlight = false;
     const load = async () => {
-      if (document.visibilityState !== 'visible') return;
+      if (inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
       try {
         const next = await quotaInsightsApi.recentRequests();
-        if (!cancelled) setRequests(next);
+        if (!cancelled) setHistory(next);
       } catch (err: unknown) {
         // The API client rejects with { status } (services/api/client.ts).
         if (!cancelled && (err as { status?: number })?.status === 404) setSupported(false);
+      } finally {
+        inFlight = false;
       }
     };
     void load();
@@ -36,7 +39,7 @@ export function useRecentRequests(enabled: boolean): {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', load);
     };
-  }, [enabled, supported]);
+  }, [active, supported]);
 
-  return { requests, supported };
+  return { ...history, supported };
 }

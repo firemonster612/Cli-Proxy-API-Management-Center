@@ -34,25 +34,19 @@ export const formatResetsIn = (targetMs: number, nowMs: number, t: TFunction): s
 export const formatExpiresIn = (targetMs: number, nowMs: number, t: TFunction): string =>
   t('quota_management.expires_in', { duration: formatLongDuration(targetMs - nowMs, t) });
 
-const instantFormatters = new Map<string, Intl.DateTimeFormat>();
+// Exact instants are always American (weekday, date, 12-hour clock) by request;
+// the relative copy around them is what gets localized.
+const instantFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
 
-/** "Wed, Oct 15, 4:12 AM": weekday, date and a 12-hour clock. */
-export function formatResetInstant(atMs: number, locale?: string): string {
-  const key = locale ?? '';
-  let formatter = instantFormatters.get(key);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    instantFormatters.set(key, formatter);
-  }
-  return formatter.format(atMs);
-}
+/** "Wed, Oct 15, 4:12 AM" in the viewer's time zone. */
+export const formatResetInstant = (atMs: number): string => instantFormatter.format(atMs);
 
 /** "just now" / "4m ago" / "2h ago" / "3d ago": minute resolution, matching useNow. */
 export function formatAgo(atMs: number, nowMs: number, t: TFunction): string {

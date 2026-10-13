@@ -2,8 +2,6 @@
  * Quota management types.
  */
 
-import type { ClaudeBankedResetStatus } from '@/services/api/quotaInsights';
-
 // Theme types
 export type ThemeColors = { bg: string; text: string; border?: string };
 export type TypeColorSet = { light: ThemeColors; dark?: ThemeColors };
@@ -150,6 +148,22 @@ export interface ClaudeProfileResponse {
     subscription_status?: string;
     subscription_created_at?: string;
   };
+}
+
+/** Claude banked-reset grant from core's `cedar_ember` passthrough; fields beyond these vary. */
+export interface ClaudeBankedResetGrant {
+  id?: string;
+  resets_left?: number;
+  usable_now?: boolean;
+  paused?: boolean;
+  [key: string]: unknown;
+}
+
+export interface ClaudeBankedResetStatus {
+  next_grant_id?: string;
+  eligible?: boolean;
+  grants?: ClaudeBankedResetGrant[];
+  [key: string]: unknown;
 }
 
 export interface ClaudeQuotaWindow {

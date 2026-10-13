@@ -21,13 +21,14 @@ export interface ModelCount {
 
 export interface AccountActivity {
   authIndex: string;
+  /** Completion time of the account's newest request. */
   lastAtMs: number;
   /** Requests inside ACTIVITY_WINDOW_MS. */
   recentCount: number;
   recentFailures: number;
   /** Model mix inside ACTIVITY_WINDOW_MS, busiest first. */
   models: ModelCount[];
-  /** Every retained request for the account, newest first. */
+  /** Every retained request for the account, newest completion first. */
   requests: RecentRequest[];
 }
 
@@ -38,7 +39,8 @@ export function groupActivityByAccount(
   requests: RecentRequest[],
   nowMs: number
 ): Map<string, AccountActivity> {
-  const sorted = [...requests].sort((a, b) => b.timeMs - a.timeMs);
+  // Records publish on completion, so completion time is what "recent" means.
+  const sorted = [...requests].sort((a, b) => b.completedAtMs - a.completedAtMs);
   const byAccount = new Map<string, AccountActivity>();
   const modelCounts = new Map<string, Map<string, number>>();
 
@@ -47,7 +49,7 @@ export function groupActivityByAccount(
     if (!activity) {
       activity = {
         authIndex: request.authIndex,
-        lastAtMs: request.timeMs,
+        lastAtMs: request.completedAtMs,
         recentCount: 0,
         recentFailures: 0,
         models: [],
@@ -57,7 +59,7 @@ export function groupActivityByAccount(
       modelCounts.set(request.authIndex, new Map());
     }
     activity.requests.push(request);
-    if (nowMs - request.timeMs > ACTIVITY_WINDOW_MS) continue;
+    if (nowMs - request.completedAtMs > ACTIVITY_WINDOW_MS) continue;
     activity.recentCount += 1;
     if (request.failed) activity.recentFailures += 1;
     const counts = modelCounts.get(request.authIndex) as Map<string, number>;

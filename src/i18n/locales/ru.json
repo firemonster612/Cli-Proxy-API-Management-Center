@@ -1213,7 +1213,6 @@
     "col_weekly": "Неделя",
     "col_weekly_model": "Неделя · модель",
     "cell_resets_at": "Сброс",
-    "cell_reset_credits": "Кредиты ручного сброса",
     "unit_day_one": "{{count}} день",
     "unit_day_few": "{{count}} дня",
     "unit_day_many": "{{count}} дней",
@@ -1283,7 +1282,16 @@
     "pool_banked_few": "{{count}} запасных сброса",
     "pool_banked_many": "{{count}} запасных сбросов",
     "pool_banked_other": "{{count}} запасных сброса",
-    "pool_estimate_note": "Пул взвешивает аккаунты по множителю тарифа (Max 20x = 20, Pro 5x = 5). Множители заявленные, а не измеренные, поэтому итоги приблизительные."
+    "pool_estimate_note": "Пул взвешивает аккаунты по множителю тарифа: Claude Max 20x = 20, Max 5x = 5; ChatGPT Pro = 20, Pro 5x (prolite) = 5, Plus и Team = 1. Множители заявленные, а не измеренные, поэтому итоги приблизительные.",
+    "routing_history_disabled": "Для маршрутизации нужна статистика использования. Включите usage-statistics-enabled в конфиге прокси.",
+    "routing_ok": "OK",
+    "banked_details_failed": "Не удалось загрузить сведения об этих сбросах.",
+    "pool_not_loaded": "не загружено: {{count}}",
+    "pool_monthly_excluded_one": "{{count}} аккаунт с месячным лимитом не учтён",
+    "pool_monthly_excluded_few": "{{count}} аккаунта с месячным лимитом не учтены",
+    "pool_monthly_excluded_many": "{{count}} аккаунтов с месячным лимитом не учтены",
+    "pool_monthly_excluded_other": "{{count}} аккаунта с месячным лимитом не учтены",
+    "pool_banked_next_expiry": "ближайший истекает через {{duration}}"
   },
   "plugin_management": {
     "title": "Управление плагинами",

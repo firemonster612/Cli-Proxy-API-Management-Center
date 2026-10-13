@@ -18,16 +18,26 @@ const formatTokens = (value: number | null): string => {
   return String(value);
 };
 
-export function RoutingDetails({ activity }: { activity: AccountActivity | undefined }) {
+export function RoutingDetails({
+  activity,
+  historyEnabled,
+}: {
+  activity: AccountActivity | undefined;
+  /** False when core's usage statistics are off, so no routing data exists. */
+  historyEnabled: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const now = useNow();
 
+  if (!historyEnabled) {
+    return <div className={styles.details}>{t('quota_management.routing_history_disabled')}</div>;
+  }
   if (!activity) {
     return <div className={styles.details}>{t('quota_management.routing_no_requests')}</div>;
   }
 
   return (
-    <div className={styles.details} data-shot="routing-details">
+    <div className={styles.details}>
       <div className={styles.summary}>
         <span>
           {t('quota_management.routing_last_hour', { count: activity.recentCount })}
@@ -60,12 +70,12 @@ export function RoutingDetails({ activity }: { activity: AccountActivity | undef
         </thead>
         <tbody>
           {activity.requests.slice(0, SHOWN_REQUESTS).map((request, index) => (
-            <tr key={`${request.timeMs}-${index}`}>
+            <tr key={`${request.startedAtMs}-${index}`}>
               <td>
                 <span className={styles.clock}>
-                  {formatClock(request.timeMs, i18n.resolvedLanguage)}
+                  {formatClock(request.startedAtMs, i18n.resolvedLanguage)}
                 </span>
-                <span className={styles.ago}>{formatAgo(request.timeMs, now, t)}</span>
+                <span className={styles.ago}>{formatAgo(request.startedAtMs, now, t)}</span>
               </td>
               <td className={styles.model}>{request.model}</td>
               <td className={styles.num}>
@@ -77,7 +87,7 @@ export function RoutingDetails({ activity }: { activity: AccountActivity | undef
               <td className={`${styles.num} ${request.failed ? styles.failed : styles.ok}`}>
                 {request.failed
                   ? (request.statusCode ?? t('quota_management.routing_failed'))
-                  : 'OK'}
+                  : t('quota_management.routing_ok')}
               </td>
             </tr>
           ))}

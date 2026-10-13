@@ -1,14 +1,18 @@
 /**
  * Pool weighting and forecast, banked-reset normalization, routing activity,
- * and the long-form duration copy.
+ * Claude plan/organization resolution, and the long-form time copy.
  */
 
 import { describe, expect, test } from 'bun:test';
 import type { TFunction } from 'i18next';
 import { bankedResetsFor } from '@/features/quota/bankedResets';
 import { buildPoolSummary, planWeight } from '@/features/quota/pool';
-import { currentRoutes, groupActivityByAccount } from '@/features/quota/routing';
-import { formatLongDuration } from '@/features/quota/timeCopy';
+import {
+  resolveClaudeOrganizationName,
+  resolveClaudePlanType,
+} from '@/features/quota/providers/claude/data';
+import { currentRoutes, groupActivityByAccount, isLive } from '@/features/quota/routing';
+import { formatLongDuration, formatResetInstant } from '@/features/quota/timeCopy';
 import type { RecentRequest } from '@/services/api';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 
@@ -60,21 +64,54 @@ describe('buildPoolSummary', () => {
     { key: 'idle', label: 'idle', authIndex: '3', type: 'claude' as const, quota: undefined },
   ];
 
-  test('weights remaining capacity by plan and counts unloaded accounts as pending', () => {
+  test('weights remaining capacity by plan and counts unloaded accounts', () => {
     const pool = buildPoolSummary('claude', inputs, NOW);
     // (20 * 50 + 5 * 0) / 25
     expect(pool?.remainingPercent).toBe(40);
-    expect(pool?.pendingCount).toBe(1);
+    expect(pool?.notLoadedCount).toBe(1);
   });
 
   test('forecasts resets soonest first with what each gives back', () => {
     const pool = buildPoolSummary('claude', inputs, NOW);
     expect(
-      pool?.forecast.map((step) => [step.account.key, step.restoresPercent, step.percent])
+      pool?.resets.map((step) => [step.accounts[0].key, step.restoresPercent, step.percent])
     ).toEqual([
       ['small', 20, 60],
       ['big', 40, 100],
     ]);
+  });
+
+  test('accounts resetting in the same minute restore in one step', () => {
+    const resetAt = NOW + 2 * HOUR;
+    const pool = buildPoolSummary(
+      'claude',
+      [
+        { ...inputs[1], key: 'x', quota: claude(100, 'max_5x', resetAt) },
+        { ...inputs[1], key: 'y', quota: claude(100, 'max_5x', resetAt + 20_000) },
+      ],
+      NOW
+    );
+    expect(
+      pool?.resets.map((step) => [step.accounts.map((a) => a.key), step.restoresPercent])
+    ).toEqual([[['x', 'y'], 100]]);
+  });
+
+  test('leaves monthly-window accounts out of the weekly pool', () => {
+    const codex = (id: string, periodHours: number): CodexQuotaState => ({
+      status: 'success',
+      planType: 'plus',
+      windows: [{ id, label: '', usedPercent: 100, resetLabel: '', periodHours }],
+    });
+    const pool = buildPoolSummary(
+      'codex',
+      [
+        { key: 'plus', label: '', authIndex: '1', type: 'codex', quota: codex('weekly', 168) },
+        { key: 'team', label: '', authIndex: '2', type: 'codex', quota: codex('monthly', 720) },
+      ],
+      NOW
+    );
+    expect(pool?.accounts.map((account) => account.key)).toEqual(['plus']);
+    expect(pool?.monthlyCount).toBe(1);
   });
 });
 
@@ -117,7 +154,8 @@ describe('bankedResetsFor', () => {
 
 describe('routing activity', () => {
   const request = (authIndex: string, agoMs: number, model: string): RecentRequest => ({
-    timeMs: NOW - agoMs,
+    startedAtMs: NOW - agoMs,
+    completedAtMs: NOW - agoMs,
     provider: 'claude',
     authIndex,
     model,
@@ -145,6 +183,34 @@ describe('routing activity', () => {
     const routes = currentRoutes(activity, NOW, () => 'claude');
     expect(routes.get('claude')?.authIndex).toBe('1');
   });
+
+  test('a long request is live when it completes, not when it started', () => {
+    const longRun = { ...request('1', 10 * 60_000, 'opus'), completedAtMs: NOW - 30_000 };
+    const activity = groupActivityByAccount([longRun], NOW);
+    expect(activity.get('1')?.lastAtMs).toBe(NOW - 30_000);
+    expect(isLive(activity.get('1'), NOW)).toBe(true);
+  });
+});
+
+describe('Claude profile', () => {
+  const profile = (tier: string, organizationType: string) => ({
+    account: { has_claude_max: true },
+    organization: { name: 'Northwind Labs', organization_type: organizationType, rate_limit_tier: tier },
+  });
+
+  test('maps the Max tier to plan_max5 / plan_max20', () => {
+    expect(resolveClaudePlanType(profile('default_claude_max_5x', 'claude_max'))).toBe('plan_max5');
+    expect(resolveClaudePlanType(profile('default_claude_max_20x', 'claude_max'))).toBe(
+      'plan_max20'
+    );
+    expect(resolveClaudePlanType(profile('', 'claude_max'))).toBe('plan_max');
+  });
+
+  test('names only Team and Enterprise organizations', () => {
+    expect(resolveClaudeOrganizationName(profile('', 'claude_team'))).toBe('Northwind Labs');
+    expect(resolveClaudeOrganizationName(profile('', 'claude_enterprise'))).toBe('Northwind Labs');
+    expect(resolveClaudeOrganizationName(profile('', 'claude_max'))).toBeNull();
+  });
 });
 
 describe('formatLongDuration', () => {
@@ -157,5 +223,12 @@ describe('formatLongDuration', () => {
     expect(formatLongDuration(31 * HOUR + 12 * 60_000, t)).toBe('1 day, 7 hours');
     expect(formatLongDuration(3 * HOUR + 5 * 60_000, t)).toBe('3 hours, 5 minutes');
     expect(formatLongDuration(20_000, t)).toBe('1 minute');
+  });
+});
+
+describe('formatResetInstant', () => {
+  test('is American weekday, date and 12-hour clock in the local zone', () => {
+    // Local-time constructor, so the expectation holds in any time zone.
+    expect(formatResetInstant(new Date(2026, 9, 15, 4, 12).getTime())).toBe('Thu, Oct 15, 4:12 AM');
   });
 });

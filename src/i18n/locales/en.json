@@ -1226,7 +1226,6 @@
     "col_weekly": "Weekly",
     "col_weekly_model": "Weekly · model",
     "cell_resets_at": "Resets",
-    "cell_reset_credits": "Manual reset credits",
     "unit_day_one": "{{count}} day",
     "unit_day_other": "{{count}} days",
     "unit_hour_one": "{{count}} hour",
@@ -1278,7 +1277,14 @@
     "pool_no_reset_week": "No weekly resets due in the next 7 days",
     "pool_banked_one": "{{count}} banked reset",
     "pool_banked_other": "{{count}} banked resets",
-    "pool_estimate_note": "Pool totals weight each account by its plan multiple (Max 20x counts as 20, Pro 5x as 5). The multiples are advertised, not measured, so treat totals as estimates."
+    "pool_estimate_note": "Pool totals weight each account by its plan multiple: Claude Max 20x counts as 20, Max 5x as 5; ChatGPT Pro as 20, Pro 5x (prolite) as 5, Plus and Team as 1. The multiples are advertised, not measured, so treat totals as estimates.",
+    "routing_history_disabled": "Routing needs usage statistics. Turn on usage-statistics-enabled in the proxy config.",
+    "routing_ok": "OK",
+    "banked_details_failed": "Couldn't load the details of these resets.",
+    "pool_not_loaded": "{{count}} not loaded",
+    "pool_monthly_excluded_one": "{{count}} monthly-limit account not counted",
+    "pool_monthly_excluded_other": "{{count}} monthly-limit accounts not counted",
+    "pool_banked_next_expiry": "next expires in {{duration}}"
   },
   "plugin_management": {
     "title": "Plugin Management",

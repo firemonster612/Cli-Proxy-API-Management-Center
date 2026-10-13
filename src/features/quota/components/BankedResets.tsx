@@ -34,7 +34,7 @@ export function BankedResetsButton({
   using,
   onUse,
 }: BankedResetsButtonProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const now = useNow();
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const close = useCallback(() => setAt(null), []);
@@ -45,7 +45,6 @@ export function BankedResetsButton({
     <>
       <button
         type="button"
-        data-shot="banked-resets"
         className={[
           styles.pill,
           banked.available === 0 ? styles.pillEmpty : '',
@@ -68,7 +67,7 @@ export function BankedResetsButton({
           role="dialog"
           onClose={close}
         >
-          <div className={styles.panel} data-shot="banked-panel">
+          <div className={styles.panel}>
             <div className={styles.header}>
               <span className={styles.heading}>
                 <IconTicket size={14} aria-hidden="true" />
@@ -81,7 +80,11 @@ export function BankedResetsButton({
             <div className={styles.account}>{accountLabel}</div>
 
             {banked.items.length === 0 ? (
-              <div className={styles.empty}>{t('quota_management.banked_none')}</div>
+              <div className={styles.empty}>
+                {banked.detailsFailed && banked.available > 0
+                  ? t('quota_management.banked_details_failed')
+                  : t('quota_management.banked_none')}
+              </div>
             ) : (
               <ul className={styles.list}>
                 {banked.items.map((item) => {
@@ -101,7 +104,7 @@ export function BankedResetsButton({
                               {formatExpiresIn(item.expiresAtMs, now, t)}
                             </span>
                             <span className={styles.itemSecondary}>
-                              {formatResetInstant(item.expiresAtMs, i18n.resolvedLanguage)}
+                              {formatResetInstant(item.expiresAtMs)}
                             </span>
                           </>
                         )}

@@ -17,9 +17,9 @@ import type { ResolvedTheme } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { DAY_MS } from '@/utils/time/durations';
 import type { BankedResets } from '../bankedResets';
-import { POOL_FORECAST_HORIZON_MS, type PoolSummary as PoolSummaryData } from '../pool';
+import type { PoolSummary as PoolSummaryData } from '../pool';
 import type { AccountActivity } from '../routing';
-import { formatAgo, formatExpiresIn, formatResetInstant, formatResetsIn } from '../timeCopy';
+import { formatAgo, formatLongDuration, formatResetInstant, formatResetsIn } from '../timeCopy';
 import styles from './PoolSummary.module.scss';
 
 export interface PoolCardData {
@@ -31,6 +31,7 @@ export interface PoolCardData {
 }
 
 const pct = (value: number) => `${Math.round(value)}%`;
+const FORECAST_HORIZON_MS = 7 * DAY_MS;
 
 function Forecast({
   summary,
@@ -41,16 +42,17 @@ function Forecast({
   now: number;
   locale?: string;
 }) {
-  const end = now + POOL_FORECAST_HORIZON_MS;
-  const x = (ms: number) => ((ms - now) / POOL_FORECAST_HORIZON_MS) * 100;
+  const end = now + FORECAST_HORIZON_MS;
+  const x = (ms: number) => ((ms - now) / FORECAST_HORIZON_MS) * 100;
   const y = (percent: number) => 100 - Math.max(0, Math.min(100, percent));
+  const steps = summary.resets.filter((step) => step.atMs <= end);
 
   let path = `M 0 ${y(summary.remainingPercent)}`;
-  summary.forecast.forEach((step, index) => {
-    const before = index === 0 ? summary.remainingPercent : summary.forecast[index - 1].percent;
+  steps.forEach((step, index) => {
+    const before = index === 0 ? summary.remainingPercent : steps[index - 1].percent;
     path += ` L ${x(step.atMs)} ${y(before)} L ${x(step.atMs)} ${y(step.percent)}`;
   });
-  const last = summary.forecast[summary.forecast.length - 1]?.percent ?? summary.remainingPercent;
+  const last = steps[steps.length - 1]?.percent ?? summary.remainingPercent;
   path += ` L 100 ${y(last)}`;
   const area = `${path} L 100 100 L 0 100 Z`;
 
@@ -69,9 +71,9 @@ function Forecast({
         <path d={area} className={styles.forecastArea} />
         <path d={path} className={styles.forecastLine} vectorEffect="non-scaling-stroke" />
       </svg>
-      {summary.forecast.map((step) => (
+      {steps.map((step) => (
         <span
-          key={step.account.key}
+          key={step.atMs}
           className={styles.stepLabel}
           style={{ left: `${x(step.atMs)}%`, top: `${y(step.percent)}%` }}
         >
@@ -89,12 +91,20 @@ function Forecast({
   );
 }
 
-function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: ResolvedTheme }) {
+function PoolCard({
+  data,
+  historyEnabled,
+  resolvedTheme,
+}: {
+  data: PoolCardData;
+  historyEnabled: boolean;
+  resolvedTheme: ResolvedTheme;
+}) {
   const { t, i18n } = useTranslation();
   const now = useNow();
   const { summary, route, routeLabel, banked } = data;
   const icon = getAuthFileIcon(summary.provider, resolvedTheme);
-  const next = summary.forecast[0];
+  const next = summary.resets[0];
   const bankedTotal = banked.reduce((sum, entry) => sum + entry.available, 0);
   const nextExpiry = banked
     .flatMap((entry) => entry.items)
@@ -103,14 +113,14 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
     .sort((a, b) => a - b)[0];
 
   return (
-    <section className={styles.card} data-shot={`pool-${summary.provider}`}>
+    <section className={styles.card}>
       <header className={styles.header}>
         <span className={styles.title}>
           {icon && <img src={icon} alt="" className={styles.icon} />}
           {getTypeLabel(t, summary.provider)}
           <span className={styles.muted}>
             {t('quota_management.pool_accounts', {
-              count: summary.accounts.length + summary.pendingCount,
+              count: summary.accounts.length + summary.notLoadedCount + summary.monthlyCount,
             })}
           </span>
         </span>
@@ -119,11 +129,15 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
             <span className={styles.liveDot} />
             {t('quota_management.pool_routing_to')} <strong>{routeLabel}</strong>
             <span className={styles.muted}>
-              {route.models[0]?.model ?? ''} · {formatAgo(route.lastAtMs, now, t)}
+              {route.requests[0]?.model ?? ''} · {formatAgo(route.lastAtMs, now, t)}
             </span>
           </span>
         ) : (
-          <span className={styles.routeIdle}>{t('quota_management.pool_routing_idle')}</span>
+          <span className={styles.routeIdle}>
+            {historyEnabled
+              ? t('quota_management.pool_routing_idle')
+              : t('quota_management.routing_history_disabled')}
+          </span>
         )}
       </header>
 
@@ -136,6 +150,18 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
             {t('quota_management.pool_five_hour', {
               percent: pct(summary.fiveHourRemainingPercent),
             })}
+          </span>
+        )}
+        {summary.notLoadedCount > 0 && (
+          <span className={styles.partial}>
+            ·{' '}
+            {t('quota_management.pool_not_loaded', { count: summary.notLoadedCount })}
+          </span>
+        )}
+        {summary.monthlyCount > 0 && (
+          <span className={styles.muted}>
+            ·{' '}
+            {t('quota_management.pool_monthly_excluded', { count: summary.monthlyCount })}
           </span>
         )}
       </div>
@@ -178,12 +204,15 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
         {next ? (
           <>
             <span className={styles.muted}>{t('quota_management.pool_next_reset')}</span>{' '}
-            <strong>{formatResetInstant(next.atMs, i18n.resolvedLanguage)}</strong>
+            <strong>{formatResetInstant(next.atMs)}</strong>
             <span className={styles.muted}> · {formatResetsIn(next.atMs, now, t)} · </span>
             <span className={styles.restore}>
               {t('quota_management.pool_restores', { percent: pct(next.restoresPercent) })}
             </span>
-            <span className={styles.muted}> ({next.account.label})</span>
+            <span className={styles.muted}>
+              {' '}
+              ({next.accounts.map((account) => account.label).join(', ')})
+            </span>
           </>
         ) : (
           <span className={styles.muted}>{t('quota_management.pool_no_reset_week')}</span>
@@ -199,7 +228,10 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
           {nextExpiry !== undefined && (
             <span className={styles.muted}>
               {' '}
-              · {formatExpiresIn(nextExpiry, now, t).toLowerCase()}
+              ·{' '}
+              {t('quota_management.pool_banked_next_expiry', {
+                duration: formatLongDuration(nextExpiry - now, t),
+              })}
             </span>
           )}
         </div>
@@ -210,9 +242,12 @@ function PoolCard({ data, resolvedTheme }: { data: PoolCardData; resolvedTheme: 
 
 export function PoolSummary({
   cards,
+  historyEnabled,
   resolvedTheme,
 }: {
   cards: PoolCardData[];
+  /** False when core's usage statistics are off, so no routing data exists. */
+  historyEnabled: boolean;
   resolvedTheme: ResolvedTheme;
 }) {
   const { t } = useTranslation();
@@ -220,7 +255,12 @@ export function PoolSummary({
   return (
     <div className={styles.pool}>
       {cards.map((card) => (
-        <PoolCard key={card.summary.provider} data={card} resolvedTheme={resolvedTheme} />
+        <PoolCard
+          key={card.summary.provider}
+          data={card}
+          historyEnabled={historyEnabled}
+          resolvedTheme={resolvedTheme}
+        />
       ))}
       <p className={styles.footnote}>{t('quota_management.pool_estimate_note')}</p>
     </div>

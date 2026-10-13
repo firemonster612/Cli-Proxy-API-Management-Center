@@ -7,15 +7,20 @@
  * the advertised plan multiples, not measured limits, so the UI labels the
  * total as an estimate and shows each account's weight.
  *
+ * The pool is weekly only: accounts on a monthly window (Codex Team) are
+ * counted separately rather than mixed into weekly capacity.
+ *
  * Pure and clock-free; React-free so tests can consume it directly.
  */
 
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { normalizePlanType, PREMIUM_CODEX_PLAN_TYPES } from '@/utils/quota';
-import { DAY_MS } from '@/utils/time/durations';
+import { MINUTE_MS } from '@/utils/time/durations';
 import { buildQuotaColumns, type QuotaCellData } from './columns';
 import type { QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
+
+const WEEK_HOURS = 7 * 24;
 
 /** Multiplier in units of the provider's base paid plan (Claude Pro, ChatGPT Plus). */
 export function planWeight(type: QuotaProviderType, quota: QuotaCardState | undefined): number {
@@ -34,16 +39,11 @@ export function planWeight(type: QuotaProviderType, quota: QuotaCardState | unde
   return 1;
 }
 
-/** The weekly (or Team monthly) cell: the window that decides whether an account is spent. */
-export function weeklyCell(
-  type: QuotaProviderType,
-  quota: QuotaCardState | undefined
-): QuotaCellData | null {
-  return buildQuotaColumns(type, quota)?.weekly ?? null;
-}
-
 export const isWeeklySpent = (cell: QuotaCellData | null): boolean =>
   cell !== null && cell.remaining !== null && cell.remaining <= 0;
+
+const isMonthlyWindow = (cell: QuotaCellData): boolean =>
+  cell.periodHours !== null && cell.periodHours > WEEK_HOURS;
 
 export interface PoolAccountInput {
   key: string;
@@ -65,28 +65,29 @@ export interface PoolAccount {
   resetAtMs: number | null;
 }
 
-export interface PoolForecastStep {
+export interface PoolResetStep {
   atMs: number;
   /** Pool percent left right after this reset, assuming no further use. */
   percent: number;
   /** How much of the pool this reset gives back. */
   restoresPercent: number;
-  account: PoolAccount;
+  /** Every account resetting in this minute. */
+  accounts: PoolAccount[];
 }
 
 export interface PoolSummary {
   provider: QuotaProviderType;
   accounts: PoolAccount[];
-  /** Accounts that exist but whose weekly window hasn't loaded. */
-  pendingCount: number;
+  /** Accounts whose weekly window hasn't loaded or failed to; the total leaves them out. */
+  notLoadedCount: number;
+  /** Accounts on a monthly window, left out of the weekly pool. */
+  monthlyCount: number;
   totalWeight: number;
   remainingPercent: number;
   fiveHourRemainingPercent: number | null;
-  /** Upcoming weekly resets inside the horizon, soonest first. */
-  forecast: PoolForecastStep[];
+  /** Upcoming resets that give capacity back, soonest first. */
+  resets: PoolResetStep[];
 }
-
-export const POOL_FORECAST_HORIZON_MS = 7 * DAY_MS;
 
 export function buildPoolSummary(
   provider: QuotaProviderType,
@@ -95,10 +96,19 @@ export function buildPoolSummary(
 ): PoolSummary | null {
   if (inputs.length === 0) return null;
   const accounts: PoolAccount[] = [];
+  let notLoadedCount = 0;
+  let monthlyCount = 0;
   for (const input of inputs) {
     const columns = buildQuotaColumns(input.type, input.quota);
     const weekly = columns?.weekly;
-    if (!weekly || weekly.remaining === null) continue;
+    if (!weekly || weekly.remaining === null) {
+      notLoadedCount += 1;
+      continue;
+    }
+    if (isMonthlyWindow(weekly)) {
+      monthlyCount += 1;
+      continue;
+    }
     accounts.push({
       key: input.key,
       label: input.label,
@@ -109,18 +119,10 @@ export function buildPoolSummary(
       resetAtMs: weekly.resetAtMs,
     });
   }
-  const pendingCount = inputs.length - accounts.length;
   const totalWeight = accounts.reduce((sum, account) => sum + account.weight, 0);
+  const counts = { provider, accounts, notLoadedCount, monthlyCount, totalWeight };
   if (totalWeight === 0) {
-    return {
-      provider,
-      accounts,
-      pendingCount,
-      totalWeight,
-      remainingPercent: 0,
-      fiveHourRemainingPercent: null,
-      forecast: [],
-    };
+    return { ...counts, remainingPercent: 0, fiveHourRemainingPercent: null, resets: [] };
   }
 
   const share = (account: PoolAccount, percent: number) => (account.weight * percent) / totalWeight;
@@ -147,26 +149,25 @@ export function buildPoolSummary(
   const upcoming = accounts
     .filter(
       (account) =>
-        account.resetAtMs !== null &&
-        account.resetAtMs > nowMs &&
-        account.resetAtMs <= nowMs + POOL_FORECAST_HORIZON_MS &&
-        account.remaining < 100
+        account.resetAtMs !== null && account.resetAtMs > nowMs && account.remaining < 100
     )
     .sort((a, b) => (a.resetAtMs as number) - (b.resetAtMs as number));
+  // Accounts resetting in the same minute restore together, so they share one step.
+  const resets: PoolResetStep[] = [];
   let running = remainingPercent;
-  const forecast = upcoming.map((account) => {
+  for (const account of upcoming) {
+    const atMs = account.resetAtMs as number;
     const restoresPercent = share(account, 100 - account.remaining);
     running += restoresPercent;
-    return { atMs: account.resetAtMs as number, percent: running, restoresPercent, account };
-  });
+    const last = resets[resets.length - 1];
+    if (last && Math.floor(last.atMs / MINUTE_MS) === Math.floor(atMs / MINUTE_MS)) {
+      last.percent = running;
+      last.restoresPercent += restoresPercent;
+      last.accounts.push(account);
+    } else {
+      resets.push({ atMs, percent: running, restoresPercent, accounts: [account] });
+    }
+  }
 
-  return {
-    provider,
-    accounts,
-    pendingCount,
-    totalWeight,
-    remainingPercent,
-    fiveHourRemainingPercent,
-    forecast,
-  };
+  return { ...counts, remainingPercent, fiveHourRemainingPercent, resets };
 }
