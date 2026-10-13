@@ -1292,7 +1292,6 @@
     "pool_segment_weight": "計為 {{weight}}× · 佔額度池 {{share}}",
     "pool_next_reset": "下次重置",
     "pool_restores": "額度池 +{{percent}}",
-    "pool_no_reset_week": "未來 7 天內沒有週額度重置",
     "pool_banked_other": "{{count}} 次儲備重置",
     "pool_estimate_note": "額度池依各帳號的方案倍數加權：Claude Max 20x 計為 20，Max 5x 計為 5；ChatGPT Pro 計為 20，Pro 5x（prolite）計為 5，Plus 與 Team 計為 1。倍數為官方宣稱值而非實測，總數僅供估算。",
     "routing_history_disabled": "路由資訊需要使用統計。請在代理設定中開啟 usage-statistics-enabled。",
@@ -1300,7 +1299,10 @@
     "banked_details_failed": "無法載入這些重置的詳細資料。",
     "pool_not_loaded": "{{count}} 個未載入",
     "pool_monthly_excluded_other": "{{count}} 個按月限額的帳號未計入",
-    "pool_banked_next_expiry": "最近一次{{duration}}後到期"
+    "pool_banked_next_expiry": "最近一次{{duration}}後到期",
+    "pool_all_full": "無需恢復：所有帳號額度已滿",
+    "pool_no_reset_known": "未提供重置時間",
+    "pool_no_weekly": "這些帳號沒有週額度限制"
   },
   "plugin_management": {
     "title": "插件管理",

@@ -1274,7 +1274,6 @@
     "pool_segment_weight": "Counts as {{weight}}× · {{share}} of the pool",
     "pool_next_reset": "Next reset",
     "pool_restores": "+{{percent}} of pool",
-    "pool_no_reset_week": "No weekly resets due in the next 7 days",
     "pool_banked_one": "{{count}} banked reset",
     "pool_banked_other": "{{count}} banked resets",
     "pool_estimate_note": "Pool totals weight each account by its plan multiple: Claude Max 20x counts as 20, Max 5x as 5; ChatGPT Pro as 20, Pro 5x (prolite) as 5, Plus and Team as 1. The multiples are advertised, not measured, so treat totals as estimates.",
@@ -1284,7 +1283,10 @@
     "pool_not_loaded": "{{count}} not loaded",
     "pool_monthly_excluded_one": "{{count}} monthly-limit account not counted",
     "pool_monthly_excluded_other": "{{count}} monthly-limit accounts not counted",
-    "pool_banked_next_expiry": "next expires in {{duration}}"
+    "pool_banked_next_expiry": "next expires in {{duration}}",
+    "pool_all_full": "Nothing to restore: every account is full",
+    "pool_no_reset_known": "No reset time reported",
+    "pool_no_weekly": "No weekly limit on these accounts"
   },
   "plugin_management": {
     "title": "Plugin Management",

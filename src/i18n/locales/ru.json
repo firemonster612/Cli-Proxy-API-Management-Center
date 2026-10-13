@@ -1277,7 +1277,6 @@
     "pool_segment_weight": "Считается как {{weight}}× · {{share}} пула",
     "pool_next_reset": "Следующий сброс",
     "pool_restores": "+{{percent}} пула",
-    "pool_no_reset_week": "В ближайшие 7 дней недельных сбросов нет",
     "pool_banked_one": "{{count}} запасной сброс",
     "pool_banked_few": "{{count}} запасных сброса",
     "pool_banked_many": "{{count}} запасных сбросов",
@@ -1291,7 +1290,10 @@
     "pool_monthly_excluded_few": "{{count}} аккаунта с месячным лимитом не учтены",
     "pool_monthly_excluded_many": "{{count}} аккаунтов с месячным лимитом не учтены",
     "pool_monthly_excluded_other": "{{count}} аккаунта с месячным лимитом не учтены",
-    "pool_banked_next_expiry": "ближайший истекает через {{duration}}"
+    "pool_banked_next_expiry": "ближайший истекает через {{duration}}",
+    "pool_all_full": "Восстанавливать нечего: все аккаунты полные",
+    "pool_no_reset_known": "Время сброса не указано",
+    "pool_no_weekly": "У этих аккаунтов нет недельного лимита"
   },
   "plugin_management": {
     "title": "Управление плагинами",

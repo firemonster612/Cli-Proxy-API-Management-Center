@@ -105,6 +105,8 @@ function PoolCard({
   const { summary, route, routeLabel, banked } = data;
   const icon = getAuthFileIcon(summary.provider, resolvedTheme);
   const next = summary.resets[0];
+  // Accounts on monthly windows only: there is no weekly capacity to total.
+  const hasWeekly = summary.accounts.length > 0;
   const bankedTotal = banked.reduce((sum, entry) => sum + entry.available, 0);
   const nextExpiry = banked
     .flatMap((entry) => entry.items)
@@ -142,8 +144,14 @@ function PoolCard({
       </header>
 
       <div className={styles.headline}>
-        <span className={styles.bigNumber}>{pct(summary.remainingPercent)}</span>
-        <span className={styles.headlineText}>{t('quota_management.pool_weekly_left')}</span>
+        {hasWeekly ? (
+          <>
+            <span className={styles.bigNumber}>{pct(summary.remainingPercent)}</span>
+            <span className={styles.headlineText}>{t('quota_management.pool_weekly_left')}</span>
+          </>
+        ) : (
+          <span className={styles.headlineText}>{t('quota_management.pool_no_weekly')}</span>
+        )}
         {summary.fiveHourRemainingPercent !== null && (
           <span className={styles.muted}>
             ·{' '}
@@ -154,72 +162,82 @@ function PoolCard({
         )}
         {summary.notLoadedCount > 0 && (
           <span className={styles.partial}>
-            ·{' '}
-            {t('quota_management.pool_not_loaded', { count: summary.notLoadedCount })}
+            · {t('quota_management.pool_not_loaded', { count: summary.notLoadedCount })}
           </span>
         )}
         {summary.monthlyCount > 0 && (
           <span className={styles.muted}>
-            ·{' '}
-            {t('quota_management.pool_monthly_excluded', { count: summary.monthlyCount })}
+            · {t('quota_management.pool_monthly_excluded', { count: summary.monthlyCount })}
           </span>
         )}
       </div>
 
-      <div
-        className={styles.segments}
-        style={{
-          gridTemplateColumns: summary.accounts.map((account) => `${account.weight}fr`).join(' '),
-        }}
-      >
-        {summary.accounts.map((account) => (
-          <HoverCard
-            key={account.key}
-            className={[
-              styles.segment,
-              account.remaining <= 0 ? styles.segmentSpent : '',
-              route?.authIndex === account.authIndex ? styles.segmentLive : '',
-            ].join(' ')}
-            content={
-              <div className={styles.tooltip}>
-                <strong>{account.label}</strong>
-                <div>
-                  {t('quota_management.pool_segment_left', { percent: pct(account.remaining) })}
-                </div>
-                <div className={styles.muted}>
-                  {t('quota_management.pool_segment_weight', {
-                    weight: account.weight,
-                    share: pct((account.weight / summary.totalWeight) * 100),
-                  })}
-                </div>
-              </div>
-            }
+      {hasWeekly && (
+        <>
+          <div
+            className={styles.segments}
+            style={{
+              gridTemplateColumns: summary.accounts
+                .map((account) => `${account.weight}fr`)
+                .join(' '),
+            }}
           >
-            <span className={styles.segmentFill} style={{ width: `${account.remaining}%` }} />
-          </HoverCard>
-        ))}
-      </div>
+            {summary.accounts.map((account) => (
+              <HoverCard
+                key={account.key}
+                className={[
+                  styles.segment,
+                  account.remaining <= 0 ? styles.segmentSpent : '',
+                  route?.authIndex === account.authIndex ? styles.segmentLive : '',
+                ].join(' ')}
+                content={
+                  <div className={styles.tooltip}>
+                    <strong>{account.label}</strong>
+                    <div>
+                      {t('quota_management.pool_segment_left', { percent: pct(account.remaining) })}
+                    </div>
+                    <div className={styles.muted}>
+                      {t('quota_management.pool_segment_weight', {
+                        weight: account.weight,
+                        share: pct((account.weight / summary.totalWeight) * 100),
+                      })}
+                    </div>
+                  </div>
+                }
+              >
+                <span className={styles.segmentFill} style={{ width: `${account.remaining}%` }} />
+              </HoverCard>
+            ))}
+          </div>
 
-      <div className={styles.nextReset}>
-        {next ? (
-          <>
-            <span className={styles.muted}>{t('quota_management.pool_next_reset')}</span>{' '}
-            <strong>{formatResetInstant(next.atMs)}</strong>
-            <span className={styles.muted}> · {formatResetsIn(next.atMs, now, t)} · </span>
-            <span className={styles.restore}>
-              {t('quota_management.pool_restores', { percent: pct(next.restoresPercent) })}
-            </span>
-            <span className={styles.muted}>
-              {' '}
-              ({next.accounts.map((account) => account.label).join(', ')})
-            </span>
-          </>
-        ) : (
-          <span className={styles.muted}>{t('quota_management.pool_no_reset_week')}</span>
-        )}
-      </div>
+          {hasWeekly && (
+            <div className={styles.nextReset}>
+              {next ? (
+                <>
+                  <span className={styles.muted}>{t('quota_management.pool_next_reset')}</span>{' '}
+                  <strong>{formatResetInstant(next.atMs)}</strong>
+                  <span className={styles.muted}> · {formatResetsIn(next.atMs, now, t)} · </span>
+                  <span className={styles.restore}>
+                    {t('quota_management.pool_restores', { percent: pct(next.restoresPercent) })}
+                  </span>
+                  <span className={styles.muted}>
+                    {' '}
+                    ({next.accounts.map((account) => account.label).join(', ')})
+                  </span>
+                </>
+              ) : (
+                <span className={styles.muted}>
+                  {summary.remainingPercent >= 100
+                    ? t('quota_management.pool_all_full')
+                    : t('quota_management.pool_no_reset_known')}
+                </span>
+              )}
+            </div>
+          )}
 
-      <Forecast summary={summary} now={now} locale={i18n.resolvedLanguage} />
+          <Forecast summary={summary} now={now} locale={i18n.resolvedLanguage} />
+        </>
+      )}
 
       {bankedTotal > 0 && (
         <div className={styles.banked}>

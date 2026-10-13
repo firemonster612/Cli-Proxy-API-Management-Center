@@ -81,8 +81,8 @@ describe('buildPoolSummary', () => {
     ]);
   });
 
-  test('accounts resetting in the same minute restore in one step', () => {
-    const resetAt = NOW + 2 * HOUR;
+  test('accounts resetting within a minute restore in one step, even across a minute boundary', () => {
+    const resetAt = NOW + 2 * HOUR + 59_900;
     const pool = buildPoolSummary(
       'claude',
       [

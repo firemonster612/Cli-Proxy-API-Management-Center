@@ -152,7 +152,7 @@ export function buildPoolSummary(
         account.resetAtMs !== null && account.resetAtMs > nowMs && account.remaining < 100
     )
     .sort((a, b) => (a.resetAtMs as number) - (b.resetAtMs as number));
-  // Accounts resetting in the same minute restore together, so they share one step.
+  // Accounts resetting within a minute of each other restore together, so they share one step.
   const resets: PoolResetStep[] = [];
   let running = remainingPercent;
   for (const account of upcoming) {
@@ -160,7 +160,8 @@ export function buildPoolSummary(
     const restoresPercent = share(account, 100 - account.remaining);
     running += restoresPercent;
     const last = resets[resets.length - 1];
-    if (last && Math.floor(last.atMs / MINUTE_MS) === Math.floor(atMs / MINUTE_MS)) {
+    // Measured from the step's first reset, so a chain of resets can't creep forward.
+    if (last && atMs - last.atMs < MINUTE_MS) {
       last.percent = running;
       last.restoresPercent += restoresPercent;
       last.accounts.push(account);

@@ -49,6 +49,20 @@ import { useNow } from '@/hooks/useNow';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
+/** Copies every successful quota into the pool's last-known cache, keyed type:name. */
+const withSuccesses = (
+  cache: Record<string, QuotaCardState>,
+  quotaByType: Record<QuotaProviderType, Record<string, QuotaCardState>>
+): Record<string, QuotaCardState> => {
+  const next = { ...cache };
+  Object.entries(quotaByType).forEach(([type, byName]) =>
+    Object.entries(byName).forEach(([name, state]) => {
+      if (state.status === 'success') next[`${type}:${name}`] = state;
+    })
+  );
+  return next;
+};
+
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 4;
 /** Usage windows move slowly; five minutes keeps the board current without churn. */
@@ -193,19 +207,11 @@ export function QuotaPage() {
   // The pool keeps each account's last loaded quota while a refresh is in
   // flight, so the totals don't drop out and flicker on every reload.
   // Updated during render (React's "storing information from previous renders").
-  const [settledQuota, setSettledQuota] = useState<Record<string, QuotaCardState>>({});
+  const [settledQuota, setSettledQuota] = useState(() => withSuccesses({}, quotaByType));
   const [settledFrom, setSettledFrom] = useState(quotaByType);
   if (settledFrom !== quotaByType) {
     setSettledFrom(quotaByType);
-    setSettledQuota((prev) => {
-      const next = { ...prev };
-      Object.entries(quotaByType).forEach(([type, byName]) =>
-        Object.entries(byName).forEach(([name, state]) => {
-          if (state.status === 'success') next[`${type}:${name}`] = state;
-        })
-      );
-      return next;
-    });
+    setSettledQuota((prev) => withSuccesses(prev, quotaByType));
   }
   const getPoolQuota = useCallback(
     (entry: QuotaFileEntry): QuotaCardState | undefined => {
@@ -237,7 +243,7 @@ export function QuotaPage() {
         })),
         now
       );
-      if (!summary || summary.accounts.length === 0) return [];
+      if (!summary || summary.accounts.length + summary.monthlyCount === 0) return [];
       const route = routes.get(provider);
       const routeEntry = route
         ? providerEntries.find((entry) => String(entry.file.authIndex ?? '') === route.authIndex)
@@ -269,24 +275,34 @@ export function QuotaPage() {
   }, [disableControls, loadFiles]);
 
   /* ---------- auto-load ----------
-   * Whenever the rows on screen or the pool's accounts change (first load,
-   * tab, page, refresh-all), fetch their quotas in one batch. Then keep them
-   * fresh on a timer and when the tab comes back into view. The batch loader
-   * drops a run that overlaps one in flight. */
+   * Targets are the rows on screen plus every pool account. After the file
+   * list (re)loads (first load, refresh-all) they are all fetched. When the
+   * target set changes (tab, page), only accounts with no quota yet are
+   * fetched, so paging doesn't refetch the whole pool; that check re-runs
+   * once an in-flight batch finishes, because the loader drops overlapping
+   * runs. A timer and tab focus keep everything fresh. */
   const loadTargets = useMemo(() => {
     const onPage = new Set(pageItems.map(entryKey));
     return [...pageItems, ...poolEntries.filter((entry) => !onPage.has(entryKey(entry)))];
   }, [pageItems, poolEntries]);
-  const loadKey = loadTargets.map(entryKey).join('|');
   const loadTargetsRef = useRef(loadTargets);
   useEffect(() => {
     loadTargetsRef.current = loadTargets;
   }, [loadTargets]);
 
   useEffect(() => {
-    if (loading || disableControls || loadKey === '') return;
+    if (loading || disableControls) return;
     void loadQuota(loadTargetsRef.current);
-  }, [loading, disableControls, loadKey, loadQuota]);
+  }, [loading, disableControls, loadQuota]);
+
+  useEffect(() => {
+    if (loading || disableControls || batchLoading) return;
+    const missing = loadTargets.filter((entry) => {
+      const status = getQuota(entry)?.status;
+      return status === undefined || status === 'idle';
+    });
+    void loadQuota(missing);
+  }, [loading, disableControls, batchLoading, loadTargets, getQuota, loadQuota]);
 
   useEffect(() => {
     if (disableControls) return;
