@@ -1,5 +1,6 @@
 @use '../../styles/mixins' as *;
 @use './palette' as *;
+@use './board' as *;
 
 /* ============================================================
  * 额度页壳层：纯布局，视觉细节都在各组件的 colocated 模块里。
@@ -18,7 +19,9 @@
 
 /* ---------- 工作区（tabs + 网格 + 分页） ---------- */
 
+/* Size container for the board's width-dependent layout (_board.scss). */
 .workbench {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -39,36 +42,12 @@
   }
 }
 
-/* ProviderTabs is shared with the auth-files page, so the quota look is
- * applied from here: plain text, accent text and underline on the active tab. */
-.tabsRow [role='group'] {
-  border-bottom-color: var(--quota-hairline);
-}
-
-.tabsRow [role='group'] > button {
-  border-radius: 0;
-  font-weight: 500;
-  color: var(--quota-muted);
-
-  &:hover {
-    background: none;
-    color: var(--text-primary);
-  }
-
-  &[aria-pressed='true'] {
-    font-weight: 600;
-    color: var(--quota-accent);
-
-    &::after {
-      left: 12px;
-      right: 12px;
-      background: var(--quota-accent);
-    }
-
-    svg {
-      color: var(--quota-accent);
-    }
-  }
+/* ProviderTabs' theming hooks: plain text, accent text and underline on the active tab. */
+.tabsRow {
+  --tabs-border: var(--quota-hairline);
+  --tabs-muted: var(--quota-muted);
+  --tabs-accent: var(--quota-accent);
+  --tabs-hover-bg: transparent;
 }
 
 .sort {
@@ -101,17 +80,34 @@
 /* ---------- board ----------
  * The column geometry lives here so the sticky header (QuotaColumnsHeader)
  * and every row (QuotaCard) lay out on the same tracks:
- * icon | identity | 5-hour | weekly | weekly·model | actions. */
+ * icon | identity | 5-hour | weekly | weekly·model | actions.
+ * The actions are icon-only on a narrow board, so their track is too. */
 
 .list {
-  --quota-actions-width: 292px;
-  --quota-gap: 20px;
-  --quota-grid: 22px minmax(150px, 200px) repeat(3, minmax(0, 1fr)) var(--quota-actions-width);
+  --quota-actions-width: 150px;
+  --quota-identity-width: minmax(140px, 180px);
+  --quota-gap: 16px;
+  --quota-grid: 22px var(--quota-identity-width) repeat(3, minmax(0, 1fr))
+    var(--quota-actions-width);
 
   display: grid;
   gap: 0;
   grid-template-columns: 1fr;
   align-items: stretch;
+}
+
+@include wide-board {
+  .list {
+    --quota-actions-width: 320px;
+    --quota-identity-width: minmax(150px, 200px);
+    --quota-gap: 20px;
+  }
+}
+
+/* Loading placeholders shaped like the flat rows: one bar per row, split by hairlines. */
+.skeletonRow {
+  padding: 18px 4px 18px 14px;
+  border-bottom: 1px solid var(--quota-hairline);
 }
 
 @include mobile {

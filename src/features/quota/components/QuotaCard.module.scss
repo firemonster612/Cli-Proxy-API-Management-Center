@@ -1,4 +1,5 @@
 @use '../../../styles/mixins' as *;
+@use '../board' as *;
 
 /* ============================================================
  * Board row. Column template and gap come from the list (--quota-grid,
@@ -30,9 +31,10 @@
   transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 }
 
+/* background-color only, so a burning row keeps its warm gradient on hover. */
 @media (hover: hover) and (pointer: fine) {
   .card:hover {
-    background: color-mix(in srgb, var(--text-primary) 2.5%, transparent);
+    background-color: color-mix(in srgb, var(--text-primary) 2.5%, transparent);
   }
 }
 
@@ -189,7 +191,7 @@
 }
 
 .activityLive {
-  color: var(--viz-success);
+  color: var(--quota-success-text);
   font-weight: 500;
 }
 
@@ -356,11 +358,14 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- actions: quiet icon + text buttons, muted until hover ---------- */
+/* ---------- actions: quiet icon + text buttons, muted until hover ----------
+ * Icon-only on a narrow board (see ../_board.scss); the labels come back on a
+ * wide board and on phones. Buttons never shrink: the group wraps instead. */
 
 .actions {
   align-self: center;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
@@ -381,6 +386,7 @@
   font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
   transition:
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
@@ -398,6 +404,16 @@
 
 .actionButton {
   padding: 0 8px;
+}
+
+.actionLabel {
+  display: none;
+}
+
+@include wide-board {
+  .actionLabel {
+    display: inline;
+  }
 }
 
 .iconButton {
@@ -441,12 +457,27 @@
   min-width: 0;
 }
 
-/* ---------- weekly limit spent: grayed, crossed out, stamped with the return time ---------- */
+/* ---------- weekly limit spent: grayed, crossed out, stamped with the return time ----------
+ * The icon fades; text turns to opaque grays that keep ≥4.5:1 (the cells
+ * gray themselves through QuotaCell's `dimmed`). */
 
 .spent {
-  > *:not(.penStroke):not(.spentStamp):not(.actions):not(.detailsSlot) {
+  .iconWrap {
     opacity: 0.55;
     filter: grayscale(1);
+  }
+
+  .email {
+    color: var(--text-secondary);
+  }
+
+  .chips {
+    filter: grayscale(1);
+  }
+
+  .activityLive,
+  .activityIdle {
+    color: var(--quota-muted);
   }
 }
 
@@ -559,6 +590,10 @@
   .actions {
     justify-content: flex-start;
     margin-left: -8px;
+  }
+
+  .actionLabel {
+    display: inline;
   }
 }
 

@@ -1,12 +1,17 @@
-/* Quota page palette: one coral accent, plus muted and danger text tuned to
- * stay ≥4.5:1 on the page background in both themes (the global
- * --text-tertiary and --viz-failure fall short on small text).
+/* Quota page palette: one coral accent, plus text colors tuned to stay
+ * ≥4.5:1 on the page, the panels and the panel items in both themes (the
+ * global --text-tertiary, --viz-failure, --viz-success and
+ * --quota-medium-color fall short on small light-theme text).
+ * --quota-success-text and --quota-caution-text are for text only; dots, bars
+ * and icons keep --viz-success and --quota-medium-color.
  * Included by the page and by FloatingPanel, which portals out of it. */
 @mixin quota-palette {
   --quota-accent: #a84d2a;
   --quota-on-accent: #ffffff;
-  --quota-muted: #6f6962;
+  --quota-muted: #67615a;
   --quota-danger: #b3422f;
+  --quota-success-text: #08734f;
+  --quota-caution-text: #805e00;
   --quota-hairline: color-mix(in srgb, var(--border-color) 80%, transparent);
 
   :global([data-theme='dark']) & {
@@ -14,6 +19,8 @@
     --quota-on-accent: #1a1714;
     --quota-muted: var(--text-tertiary);
     --quota-danger: #e0604d;
+    --quota-success-text: var(--viz-success);
+    --quota-caution-text: color-mix(in srgb, var(--quota-medium-color) 70%, var(--text-primary));
     --quota-hairline: color-mix(in srgb, var(--border-color) 70%, transparent);
   }
 }

@@ -1,8 +1,10 @@
 @use '../../../styles/mixins' as *;
+@use '../board' as *;
 
 /* Quiet icon + text button, muted like the row's refresh action until
  * hover; the icon takes the accent while resets are banked, and the whole
- * button turns yellow when one expires soon. */
+ * button turns yellow when one expires soon. On a narrow board it shrinks
+ * to icon + count (the full text stays as its aria-label). */
 .pill {
   all: unset;
   box-sizing: border-box;
@@ -17,6 +19,7 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition:
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
@@ -37,13 +40,37 @@
   }
 }
 
+.pillLabel {
+  display: none;
+}
+
+@include wide-board {
+  .pillCount {
+    display: none;
+  }
+
+  .pillLabel {
+    display: inline;
+  }
+}
+
+@include mobile {
+  .pillCount {
+    display: none;
+  }
+
+  .pillLabel {
+    display: inline;
+  }
+}
+
 .pillEmpty svg {
   color: inherit;
 }
 
 .pillUrgent,
 .pillUrgent svg {
-  color: color-mix(in srgb, var(--quota-medium-color) 70%, var(--text-primary));
+  color: var(--quota-caution-text);
 }
 
 .panel {
@@ -121,7 +148,7 @@
   box-shadow: inset 2px 0 0 var(--quota-medium-color);
 
   .itemPrimary {
-    color: var(--quota-medium-color);
+    color: var(--quota-caution-text);
   }
 }
 

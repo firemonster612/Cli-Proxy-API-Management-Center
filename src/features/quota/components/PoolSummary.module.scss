@@ -110,7 +110,7 @@
 
 /* The total leaves these accounts out, so flag it rather than mute it. */
 .partial {
-  color: color-mix(in srgb, var(--quota-medium-color) 70%, var(--text-primary));
+  color: var(--quota-caution-text);
   font-weight: 500;
 }
 

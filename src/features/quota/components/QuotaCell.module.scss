@@ -2,7 +2,7 @@
 
 /* Label and bold percent on one line, a thin bar beneath, then the countdown
  * and exact reset time in small muted text. Both the number and the bar are
- * what's left. */
+ * what's left. Narrow cells wrap their text instead of cutting it off. */
 .cell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -38,7 +38,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
-  @include text-ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .dash {
@@ -77,9 +77,14 @@
   grid-area: countdown;
   min-width: 0;
   font-size: 12px;
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
-  @include text-ellipsis;
+}
+
+/* "1d 7h" stays whole; the line breaks before the exact time. */
+.countdownValue {
+  white-space: nowrap;
 }
 
 .exact {
@@ -104,6 +109,21 @@
 
   .countdown {
     color: var(--quota-danger);
+  }
+}
+
+/* Spent account: gray bar at reduced strength, opaque gray text that keeps
+ * its contrast (opacity on text would not). */
+.dimmed {
+  .label,
+  .percent,
+  .countdown,
+  .exact {
+    color: var(--quota-muted);
+  }
+
+  .track {
+    opacity: 0.55;
   }
 }
 

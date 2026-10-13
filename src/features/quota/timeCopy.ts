@@ -48,6 +48,23 @@ const instantFormatter = new Intl.DateTimeFormat('en-US', {
 /** "Wed, Oct 15, 4:12 AM" in the viewer's time zone. */
 export const formatResetInstant = (atMs: number): string => instantFormatter.format(atMs);
 
+const shortInstantFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
+/**
+ * "Wed, 10/15, 4:12 AM": the same instant, compact enough for a bar cell.
+ * A no-break space keeps "4:12 AM" whole when the cell wraps (engines differ
+ * on whether Intl emits a breakable space there).
+ */
+export const formatResetInstantShort = (atMs: number): string =>
+  shortInstantFormatter.format(atMs).replace(/\s(AM|PM)$/, ' $1');
+
 /** "just now" / "4m ago" / "2h ago" / "3d ago": minute resolution, matching useNow. */
 export function formatAgo(atMs: number, nowMs: number, t: TFunction): string {
   const minutes = Math.floor((nowMs - atMs) / MINUTE_MS);

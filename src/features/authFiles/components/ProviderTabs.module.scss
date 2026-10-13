@@ -1,13 +1,18 @@
 @use '../../../styles/mixins' as *;
 
-/* 提供商过滤 tabs：安静的下划线式，品牌色只在图标 */
+/* 提供商过滤 tabs：安静的下划线式，品牌色只在图标
+ * Theming hooks for host pages (defaults are this page's own look):
+ *   --tabs-border    bottom hairline
+ *   --tabs-muted     inactive label
+ *   --tabs-accent    active label, underline and glyph
+ *   --tabs-hover-bg  hover background */
 
 .tabs {
   display: flex;
   align-items: stretch;
   gap: 2px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--tabs-border, var(--border-color));
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -28,7 +33,7 @@
   border-radius: 8px 8px 0 0;
   font-size: 13px;
   font-weight: 550;
-  color: var(--text-secondary);
+  color: var(--tabs-muted, var(--text-secondary));
   white-space: nowrap;
   transition:
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
@@ -59,16 +64,16 @@
 @media (hover: hover) and (pointer: fine) {
   .tab:hover {
     color: var(--text-primary);
-    background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+    background: var(--tabs-hover-bg, color-mix(in srgb, var(--bg-tertiary) 55%, transparent));
   }
 }
 
 .tabActive {
-  color: var(--text-primary);
+  color: var(--tabs-accent, var(--text-primary));
   font-weight: 650;
 
   &::after {
-    background: var(--text-primary);
+    background: var(--tabs-accent, var(--text-primary));
   }
 }
 
@@ -77,7 +82,7 @@
   color: var(--text-tertiary);
 
   .tabActive & {
-    color: var(--text-primary);
+    color: var(--tabs-accent, var(--text-primary));
   }
 }
 

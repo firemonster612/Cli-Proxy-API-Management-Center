@@ -253,13 +253,18 @@ export function QuotaCard(props: QuotaCardProps) {
     if (columnar && columns) {
       return (
         <>
-          <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} />
+          <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} dimmed={spent} />
           <QuotaCell
             cell={columns.weekly}
             columnLabel={columnLabels.weekly}
             extras={weeklyExtras}
+            dimmed={spent}
           />
-          <QuotaCell cell={columns.weeklyModel} columnLabel={columnLabels.weeklyModel} />
+          <QuotaCell
+            cell={columns.weeklyModel}
+            columnLabel={columnLabels.weeklyModel}
+            dimmed={spent}
+          />
         </>
       );
     }
@@ -378,9 +383,10 @@ export function QuotaCard(props: QuotaCardProps) {
             onClick={onRefresh}
             disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting)}
             title={t('auth_files.quota_refresh_hint')}
+            aria-label={t('auth_files.quota_refresh_single')}
           >
             <IconRefreshCw size={14} className={loading ? styles.spinning : undefined} />
-            {t('auth_files.quota_refresh_single')}
+            <span className={styles.actionLabel}>{t('auth_files.quota_refresh_single')}</span>
           </button>
         )}
         <button
