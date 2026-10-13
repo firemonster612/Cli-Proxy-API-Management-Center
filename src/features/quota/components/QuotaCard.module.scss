@@ -363,6 +363,9 @@
  * wide board and on phones. Buttons never shrink: the group wraps instead. */
 
 .actions {
+  /* Pinned to the first row's last track, so a stamp on its own line below can't displace it. */
+  grid-row: 1;
+  grid-column: -2 / -1;
   align-self: center;
   display: flex;
   flex-wrap: wrap;
@@ -484,11 +487,9 @@
 .penStroke {
   position: absolute;
   left: 8px;
-  /* Replaced elements ignore `right` and fall back to the viewBox width, so size explicitly:
-   * stop short of the stamp, which sits just left of the actions. */
-  width: calc(
-    100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap) - 140px
-  );
+  /* Replaced elements ignore `right` and fall back to the viewBox width, so size
+   * explicitly: run up to the actions (the stamp sits on its own line below). */
+  width: calc(100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap));
   /* Centered on the first grid row, so an expanded details panel stays clear. */
   top: var(--quota-row-center);
   height: 34px;
@@ -524,11 +525,13 @@
   }
 }
 
+/* Narrow desktop boards: cells are too tight to share space with the stamp, so it
+ * takes its own line under them. Wide boards float it over the last cell, where
+ * it repeats what that crossed-out cell already says. */
 .spentStamp {
-  position: absolute;
-  top: var(--quota-row-center);
-  right: calc(var(--quota-row-pad-right) + var(--quota-actions-width) + var(--quota-gap));
-  transform: translateY(-50%) rotate(-1.5deg);
+  grid-column: 3 / -2;
+  justify-self: start;
+  transform: rotate(-1.5deg);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -537,6 +540,24 @@
   border: 1px solid color-mix(in srgb, var(--quota-danger) 65%, transparent);
   background: var(--bg-secondary);
   text-align: left;
+}
+
+@include wide-board {
+  .penStroke {
+    width: calc(
+      100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap) -
+        140px
+    );
+  }
+
+  .spentStamp {
+    /* An absolute grid child with a grid-column uses that area as its containing block. */
+    grid-column: auto;
+    position: absolute;
+    top: var(--quota-row-center);
+    right: calc(var(--quota-row-pad-right) + var(--quota-actions-width) + var(--quota-gap));
+    transform: translateY(-50%) rotate(-1.5deg);
+  }
 }
 
 .spentTitle {
@@ -576,9 +597,7 @@
   }
 
   .spentStamp {
-    position: static;
     grid-column: 1 / -1;
-    justify-self: start;
     transform: none;
   }
 
@@ -588,6 +607,7 @@
   }
 
   .actions {
+    grid-row: auto;
     justify-content: flex-start;
     margin-left: -8px;
   }
