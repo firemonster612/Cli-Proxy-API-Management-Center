@@ -14,8 +14,7 @@ export type QuotaHeaderProps = {
 };
 
 /**
- * 额度页头部：标题领衔 + ▍mono 遥测 meta 行 + 墨色药丸「刷新全部」。
- * 与凭证库头部同语汇（无 eyebrow —— ▍游标挂在 meta 行开头）。
+ * 额度页头部：标题 + 灰阶 meta 行 + 描边按钮「刷新全部」。
  *
  * 入场：三处 `data-reveal` 交给页面壳的 useRevealGroup 统一编排
  * （标题 0ms → meta 70ms → 动作 140ms → tabs 210ms）。

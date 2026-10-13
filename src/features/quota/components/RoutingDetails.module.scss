@@ -5,8 +5,8 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 3.5%, transparent);
   font-size: 12.5px;
   color: var(--text-secondary);
 }
@@ -22,7 +22,7 @@
 }
 
 .failures {
-  color: var(--viz-failure);
+  color: var(--quota-danger);
 }
 
 .models {
@@ -36,8 +36,8 @@
   align-items: baseline;
   gap: 5px;
   padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   font-family: $font-mono;
   font-size: 11.5px;
   font-weight: 500;
@@ -58,14 +58,12 @@
     padding: 0 8px 6px 0;
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
+    color: var(--quota-muted);
   }
 
   td {
     padding: 5px 8px 5px 0;
-    border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    border-top: 1px solid var(--quota-hairline);
     white-space: nowrap;
   }
 
@@ -96,7 +94,7 @@
 }
 
 .failed {
-  color: var(--viz-failure);
+  color: var(--quota-danger);
   font-weight: 700;
 }
 

@@ -1,15 +1,19 @@
 @use '../../styles/mixins' as *;
+@use './palette' as *;
 
 /* ============================================================
  * 额度页壳层：纯布局，视觉细节都在各组件的 colocated 模块里。
  * ============================================================ */
 
 .page {
+  @include quota-palette;
+
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
   width: 100%;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 工作区（tabs + 网格 + 分页） ---------- */
@@ -32,6 +36,38 @@
 
   > :first-child {
     min-width: 0;
+  }
+}
+
+/* ProviderTabs is shared with the auth-files page, so the quota look is
+ * applied from here: plain text, accent text and underline on the active tab. */
+.tabsRow [role='group'] {
+  border-bottom-color: var(--quota-hairline);
+}
+
+.tabsRow [role='group'] > button {
+  border-radius: 0;
+  font-weight: 500;
+  color: var(--quota-muted);
+
+  &:hover {
+    background: none;
+    color: var(--text-primary);
+  }
+
+  &[aria-pressed='true'] {
+    font-weight: 600;
+    color: var(--quota-accent);
+
+    &::after {
+      left: 12px;
+      right: 12px;
+      background: var(--quota-accent);
+    }
+
+    svg {
+      color: var(--quota-accent);
+    }
   }
 }
 
@@ -68,12 +104,12 @@
  * icon | identity | 5-hour | weekly | weekly·model | actions. */
 
 .list {
-  --quota-actions-width: 164px;
-  --quota-gap: 16px;
-  --quota-grid: 36px minmax(150px, 190px) repeat(3, minmax(0, 1fr)) var(--quota-actions-width);
+  --quota-actions-width: 292px;
+  --quota-gap: 20px;
+  --quota-grid: 22px minmax(150px, 200px) repeat(3, minmax(0, 1fr)) var(--quota-actions-width);
 
   display: grid;
-  gap: 8px;
+  gap: 0;
   grid-template-columns: 1fr;
   align-items: stretch;
 }
@@ -95,11 +131,8 @@
 }
 
 .pageInfo {
-  font-family: $font-mono;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
   white-space: nowrap;
 }
 

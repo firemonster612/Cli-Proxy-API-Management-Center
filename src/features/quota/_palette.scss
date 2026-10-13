@@ -1,0 +1,19 @@
+/* Quota page palette: one coral accent, plus muted and danger text tuned to
+ * stay ≥4.5:1 on the page background in both themes (the global
+ * --text-tertiary and --viz-failure fall short on small text).
+ * Included by the page and by FloatingPanel, which portals out of it. */
+@mixin quota-palette {
+  --quota-accent: #a84d2a;
+  --quota-on-accent: #ffffff;
+  --quota-muted: #6f6962;
+  --quota-danger: #b3422f;
+  --quota-hairline: color-mix(in srgb, var(--border-color) 80%, transparent);
+
+  :global([data-theme='dark']) & {
+    --quota-accent: #d97757;
+    --quota-on-accent: #1a1714;
+    --quota-muted: var(--text-tertiary);
+    --quota-danger: #e0604d;
+    --quota-hairline: color-mix(in srgb, var(--border-color) 70%, transparent);
+  }
+}

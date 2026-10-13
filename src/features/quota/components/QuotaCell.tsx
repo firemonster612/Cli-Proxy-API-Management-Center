@@ -1,13 +1,14 @@
 /**
  * One board cell:
  *
- *   5-hour limit
- *   58%  ▬▬▬▬▬▬░░░░  2h 10m
+ *   5-hour limit          58%
+ *   ▬▬▬▬▬▬▬▬▬▬░░░░░░░░
+ *   2h 10m · 10/13 22:00
  *
  * Both the number and the bar are what's left. The fill is green while
- * plenty remains, yellow once it drops under WARN_REMAINING_PERCENT, and
- * red only when the window is exhausted. Hover/tap shows the absolute reset
- * instant plus any provider extras the caller passes.
+ * plenty remains, yellow once it drops under WARN_REMAINING_PERCENT; an
+ * exhausted window turns its countdown red. Hover/tap repeats the reset
+ * instant with its long relative form plus any provider extras the caller passes.
  */
 
 import type { ReactNode } from 'react';
@@ -88,7 +89,15 @@ export function QuotaCell({ cell, columnLabel, extras }: QuotaCellProps) {
           style={{ width: `${Math.round((remaining ?? 0) * 100) / 100}%` }}
         />
       </span>
-      <span className={styles.countdown}>{countdown ?? ''}</span>
+      <span className={styles.countdown}>
+        {countdown}
+        {resetDisplay && (
+          <span className={styles.exact}>
+            {countdown ? ' · ' : ''}
+            {resetDisplay.absolute}
+          </span>
+        )}
+      </span>
     </HoverCard>
   );
 }

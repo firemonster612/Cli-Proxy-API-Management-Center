@@ -1,24 +1,26 @@
 @use '../../../styles/mixins' as *;
 
-/* label on top; percent | bar | countdown beneath. The bar takes the slack
- * so every row's bar starts and ends at the same x inside its column. */
+/* Label and bold percent on one line, a thin bar beneath, then the countdown
+ * and exact reset time in small muted text. Both the number and the bar are
+ * what's left. */
 .cell {
   display: grid;
-  grid-template-columns: 3.6ch minmax(0, 1fr) 5.6ch;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    'label label label'
-    'percent track countdown';
-  align-items: center;
+    'label percent'
+    'track track'
+    'countdown countdown';
+  align-items: baseline;
   column-gap: 8px;
-  row-gap: 5px;
+  row-gap: 7px;
   min-width: 0;
   padding: 2px 0;
-  border-radius: 6px;
+  border-radius: 4px;
   outline: none;
   cursor: default;
 
   &:focus-visible {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--quota-accent) 45%, transparent);
   }
 }
 
@@ -33,10 +35,9 @@
 .label {
   grid-area: label;
   min-width: 0;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
   @include text-ellipsis;
 }
 
@@ -44,17 +45,13 @@
   grid-area: dash;
   color: var(--text-quaternary);
   font-size: 13px;
-  line-height: 10px;
-  padding: 4px 0;
 }
 
 .percent {
   grid-area: percent;
-  font-family: $font-mono;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
   color: var(--text-primary);
   text-align: right;
 }
@@ -62,9 +59,9 @@
 .track {
   grid-area: track;
   display: block;
-  height: 10px;
+  height: 4px;
   border-radius: $radius-full;
-  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
   overflow: hidden;
 }
 
@@ -78,37 +75,35 @@
 
 .countdown {
   grid-area: countdown;
-  font-family: $font-mono;
-  font-size: 11px;
+  min-width: 0;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  white-space: nowrap;
+  color: var(--text-secondary);
+  @include text-ellipsis;
+}
+
+.exact {
+  color: var(--quota-muted);
 }
 
 /* Remaining-quota tones: green while plenty is left, yellow when it's
- * getting low, red only when the window is exhausted. */
+ * getting low, red only when the window is exhausted (its countdown is
+ * then the "back in" time). */
 .ok .fill {
   background: var(--viz-success);
 }
 
-.warn {
-  .fill {
-    background: var(--quota-medium-color);
-  }
-
-  .countdown {
-    color: color-mix(in srgb, var(--quota-medium-color) 70%, var(--text-primary));
-  }
+.warn .fill {
+  background: var(--quota-medium-color);
 }
 
 .empty {
-  .track {
-    background: color-mix(in srgb, var(--viz-failure) 22%, transparent);
+  .label {
+    color: var(--quota-muted);
   }
 
-  .percent,
   .countdown {
-    color: var(--viz-failure);
+    color: var(--quota-danger);
   }
 }
 
@@ -137,7 +132,7 @@
 
 @include mobile {
   .cell {
-    padding: 4px 0;
+    padding: 6px 0;
   }
 
   .cellEmpty {
