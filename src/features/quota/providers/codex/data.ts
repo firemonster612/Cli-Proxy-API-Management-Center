@@ -30,6 +30,7 @@ import {
   resolveCodexChatgptAccountId,
   resolveCodexPlanType,
   resolveCodexSubscriptionActiveUntil,
+  resolveCodexOrganizationTitle,
   formatCodexResetLabel,
   createStatusError,
   isCodexFile,
@@ -39,6 +40,8 @@ import { normalizeAuthIndex } from '@/utils/authIndex';
 import type { QuotaProviderData } from '../types';
 
 const CODEX_RESET_CREDITS_REQUEST_TIMEOUT_MS = 8000;
+/** Plans billed to a shared workspace; personal plans don't show a workspace name. */
+const SHARED_WORKSPACE_PLAN_TYPES = new Set(['team', 'business', 'enterprise', 'edu']);
 
 type CodexResetCreditsData = {
   availableCount: number | null;
@@ -49,6 +52,7 @@ type CodexResetCreditsData = {
 
 export type CodexQuotaData = {
   planType: string | null;
+  organizationName: string | null;
   subscriptionActiveUntil: string | number | null;
   rateLimitResetCreditsAvailableCount: number | null;
   rateLimitResetCreditsApplicableAvailableCount: number | null;
@@ -395,6 +399,9 @@ const fetchCodexQuota = async (file: AuthFileItem, t: TFunction): Promise<CodexQ
   const windows = buildCodexQuotaWindows(payload, t);
   return {
     planType,
+    organizationName: SHARED_WORKSPACE_PLAN_TYPES.has(planType ?? '')
+      ? resolveCodexOrganizationTitle(file)
+      : null,
     subscriptionActiveUntil,
     rateLimitResetCreditsAvailableCount,
     rateLimitResetCreditsApplicableAvailableCount,
@@ -467,6 +474,7 @@ export const CODEX_CONFIG: QuotaProviderData<CodexQuotaState, CodexQuotaData> = 
     status: 'success',
     windows: data.windows,
     planType: data.planType,
+    organizationName: data.organizationName,
     subscriptionActiveUntil: data.subscriptionActiveUntil,
     rateLimitResetCreditsAvailableCount: data.rateLimitResetCreditsAvailableCount,
     rateLimitResetCreditsApplicableAvailableCount:

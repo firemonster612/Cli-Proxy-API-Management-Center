@@ -517,3 +517,40 @@ export function IconSidebarSystem({ size = 20, ...props }: IconProps) {
     </svg>
   );
 }
+
+export function IconTicket({ size = 20, ...props }: IconProps) {
+  return (
+    <svg {...baseSvgProps} width={size} height={size} {...props}>
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+      <path d="M13 5v2" />
+      <path d="M13 17v2" />
+      <path d="M13 11v2" />
+    </svg>
+  );
+}
+
+export function IconBuilding({ size = 20, ...props }: IconProps) {
+  return (
+    <svg {...baseSvgProps} width={size} height={size} {...props}>
+      <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+      <path d="M9 22v-4h6v4" />
+      <path d="M8 6h.01" />
+      <path d="M16 6h.01" />
+      <path d="M12 6h.01" />
+      <path d="M12 10h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 10h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 10h.01" />
+      <path d="M8 14h.01" />
+    </svg>
+  );
+}
+
+export function IconActivity({ size = 20, ...props }: IconProps) {
+  return (
+    <svg {...baseSvgProps} width={size} height={size} {...props}>
+      <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
+    </svg>
+  );
+}

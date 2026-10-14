@@ -13,6 +13,8 @@ export interface QuotaCellData {
   /** Percent of the window still available; null when the payload had none. */
   remaining: number | null;
   resetAtMs: number | null;
+  /** Window length in hours; null when the payload didn't say. */
+  periodHours: number | null;
   /** Provider-formatted absolute reset label, shown in the tooltip. */
   resetLabel: string;
   label: string;
@@ -34,6 +36,7 @@ interface WindowLike {
   usedPercent: number | null;
   resetLabel: string;
   resetAtMs?: number | null;
+  periodHours?: number | null;
 }
 
 const toCell = (window: WindowLike | undefined): QuotaCellData | null => {
@@ -43,6 +46,7 @@ const toCell = (window: WindowLike | undefined): QuotaCellData | null => {
   return {
     remaining,
     resetAtMs: typeof window.resetAtMs === 'number' ? window.resetAtMs : null,
+    periodHours: window.periodHours ?? null,
     resetLabel: window.resetLabel,
     label: window.label,
     labelKey: window.labelKey,

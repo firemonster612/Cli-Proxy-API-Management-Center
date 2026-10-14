@@ -1,0 +1,190 @@
+@use '../../../styles/mixins' as *;
+
+/* Ticket pill: rectangular, labelled with a count, in the reset-credit
+ * accent, so it never reads as the round refresh button beside it. */
+.pill,
+.panel {
+  /* Reset credits get their own hue: violet reads as "spendable token", not status. */
+  --banked-color: #8b6cf0;
+}
+
+.pill {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px dashed color-mix(in srgb, var(--banked-color) 55%, var(--border-color));
+  background: color-mix(in srgb, var(--banked-color) 10%, transparent);
+  color: var(--banked-color);
+  font-family: $font-mono;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--banked-color) 18%, transparent);
+  }
+}
+
+.pillEmpty {
+  border-color: var(--border-color);
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.pillUrgent {
+  border-color: color-mix(in srgb, var(--quota-medium-color) 65%, var(--border-color));
+  background: color-mix(in srgb, var(--quota-medium-color) 12%, transparent);
+  color: var(--quota-medium-color);
+}
+
+.pillCount {
+  font-variant-numeric: tabular-nums;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.panel {
+  width: 308px;
+  /* Stays on screen however many resets there are; the list scrolls instead. */
+  max-height: min(520px, calc(100vh - 40px));
+  padding: 6px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  /* Only the list gives up height; everything else keeps its own. */
+  > :not(.list) {
+    flex: none;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.available {
+  font-size: 12px;
+  color: var(--banked-color);
+  font-weight: 650;
+}
+
+.account {
+  margin-top: -4px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  @include text-ellipsis;
+}
+
+.empty {
+  padding: 10px 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+}
+
+.itemSoon {
+  box-shadow: inset 2px 0 0 var(--quota-medium-color);
+
+  .itemPrimary {
+    color: var(--quota-medium-color);
+  }
+}
+
+.itemCount {
+  min-width: 22px;
+  font-family: $font-mono;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemPrimary {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.itemSecondary {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.useButton {
+  all: unset;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 650;
+  background: var(--banked-color);
+  color: #fff;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}

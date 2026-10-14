@@ -48,6 +48,17 @@ export function resolveCodexChatgptAccountId(file: AuthFileItem): string | null 
   return null;
 }
 
+/** Workspace title core decodes from the id_token (`organization_title`). */
+export function resolveCodexOrganizationTitle(file: AuthFileItem): string | null {
+  const metadata = toRecord(file.metadata);
+  const attributes = toRecord(file.attributes);
+  for (const candidate of [file.id_token, metadata?.id_token, attributes?.id_token]) {
+    const title = normalizeStringValue(toRecord(candidate)?.organization_title);
+    if (title) return title;
+  }
+  return null;
+}
+
 export function resolveCodexPlanType(file: AuthFileItem): string | null {
   const metadata =
     file && typeof file.metadata === 'object' && file.metadata !== null

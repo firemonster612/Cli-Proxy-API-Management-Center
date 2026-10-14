@@ -387,6 +387,166 @@
   }
 }
 
+/* ---------- provider icon + live traffic ---------- */
+
+.iconWrap {
+  position: relative;
+}
+
+.providerIcon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+
+/* Green is reserved for live traffic (see themes.scss). */
+.liveBadge {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  background: var(--viz-success);
+  animation: quota-live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes quota-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viz-success) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+.routed {
+  border-color: color-mix(in srgb, var(--viz-success) 45%, var(--border-color));
+  box-shadow: inset 3px 0 0 var(--viz-success);
+}
+
+.activityLive,
+.activityIdle {
+  font-size: 11px;
+  line-height: 1.3;
+  @include text-ellipsis;
+}
+
+.activityLive {
+  color: var(--viz-success);
+  font-weight: 600;
+}
+
+.activityIdle {
+  color: var(--text-tertiary);
+}
+
+.orgChip {
+  max-width: 150px;
+}
+
+.orgName {
+  @include text-ellipsis;
+}
+
+.iconButtonActive {
+  border-color: var(--border-hover);
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+  color: var(--text-primary);
+}
+
+.detailsSlot {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* ---------- weekly limit spent: crossed out with a pen, stamped with the return time ---------- */
+
+.spent {
+  > *:not(.penStroke):not(.spentStamp):not(.actions):not(.detailsSlot) {
+    opacity: 0.4;
+    filter: grayscale(0.85);
+  }
+}
+
+.penStroke {
+  position: absolute;
+  left: 12px;
+  /* Replaced elements ignore `right` and fall back to the viewBox width, so size explicitly:
+   * stop short of the stamp, which sits just left of the actions. */
+  width: calc(100% - 12px - 20px - var(--quota-actions-width) - var(--quota-gap) - 120px);
+  /* Centered on the first grid row, so an expanded details panel stays clear. */
+  top: var(--quota-row-center, 36px);
+  height: 40px;
+  transform: translateY(-50%);
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: none;
+    stroke: var(--viz-failure);
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: quota-pen-draw 0.55s cubic-bezier(0.6, 0, 0.3, 1) 0.15s forwards;
+  }
+
+  path:first-child {
+    stroke-width: 4.5;
+  }
+
+  path:last-child {
+    stroke-width: 2.4;
+    opacity: 0.75;
+    animation-delay: 0.45s;
+  }
+}
+
+@keyframes quota-pen-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.spentStamp {
+  position: absolute;
+  top: var(--quota-row-center, 36px);
+  right: calc(20px + var(--quota-actions-width) + var(--quota-gap));
+  transform: translateY(-50%) rotate(-1.5deg);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 12px 8px;
+  border-radius: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--viz-failure) 70%, transparent);
+  background: var(--bg-primary);
+  box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.4);
+  text-align: left;
+}
+
+.spentTitle {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--viz-failure);
+}
+
+.spentRelative {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.spentExact {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- phone: icon | identity | actions, then cells stacked ---------- */
 
 @include mobile {
@@ -400,6 +560,16 @@
   .actions {
     grid-row: 1;
     grid-column: 3;
+  }
+
+  .penStroke {
+    width: calc(100% - 28px);
+  }
+
+  .spentStamp {
+    position: static;
+    grid-column: 1 / -1;
+    transform: none;
   }
 
   .providerBody,
@@ -430,7 +600,13 @@
 
   .cardEnter,
   .shimmerTrack,
-  .spinning {
+  .spinning,
+  .liveBadge {
     animation: none;
+  }
+
+  .penStroke path {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

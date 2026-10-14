@@ -150,6 +150,22 @@ export interface ClaudeProfileResponse {
   };
 }
 
+/** Claude banked-reset grant from core's `cedar_ember` passthrough; fields beyond these vary. */
+export interface ClaudeBankedResetGrant {
+  id?: string;
+  resets_left?: number;
+  usable_now?: boolean;
+  paused?: boolean;
+  [key: string]: unknown;
+}
+
+export interface ClaudeBankedResetStatus {
+  next_grant_id?: string;
+  eligible?: boolean;
+  grants?: ClaudeBankedResetGrant[];
+  [key: string]: unknown;
+}
+
 export interface ClaudeQuotaWindow {
   id: string;
   label: string;
@@ -171,6 +187,12 @@ export interface ClaudeQuotaState {
   windows: ClaudeQuotaWindow[];
   extraUsage?: ClaudeExtraUsage | null;
   planType?: string | null;
+  /** Profile `organization.rate_limit_tier`, e.g. `default_claude_max_20x`. */
+  rateLimitTier?: string | null;
+  /** Organization name, kept only for Team/Enterprise organizations. */
+  organizationName?: string | null;
+  /** Raw `cedar_ember` status from core; null when the account has none or the fetch failed. */
+  bankedResets?: ClaudeBankedResetStatus | null;
   error?: string;
   errorStatus?: number;
 }
@@ -236,6 +258,8 @@ export interface CodexQuotaState {
   status: 'idle' | 'loading' | 'success' | 'error';
   windows: CodexQuotaWindow[];
   planType?: string | null;
+  /** Workspace name for Team/Business/Enterprise plans. */
+  organizationName?: string | null;
   subscriptionActiveUntil?: string | number | null;
   rateLimitResetCreditsAvailableCount?: number | null;
   rateLimitResetCreditsApplicableAvailableCount?: number | null;

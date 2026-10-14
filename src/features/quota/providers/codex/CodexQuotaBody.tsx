@@ -6,12 +6,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CodexQuotaState } from '@/types';
-import {
-  buildResetDisplay,
-  formatInstantShort,
-  parseIsoToMs,
-  resolveResetMs,
-} from '@/utils/quota';
+import { buildResetDisplay, formatInstantShort, parseIsoToMs, resolveResetMs } from '@/utils/quota';
 import { resolveTimeZoneLabel } from '@/utils/time/timezone';
 import { formatDateTimeValue } from '@/utils/format';
 import { useNow } from '@/hooks/useNow';
