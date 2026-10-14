@@ -10,17 +10,25 @@
  * The pool is weekly only: accounts on a monthly window (Codex Team) are
  * counted separately rather than mixed into weekly capacity.
  *
+ * Pace compares how much of the pool is used with how much of each account's
+ * weekly window has passed, both weighted the same way.
+ *
  * Pure and clock-free; React-free so tests can consume it directly.
  */
 
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { normalizePlanType, PREMIUM_CODEX_PLAN_TYPES } from '@/utils/quota';
-import { MINUTE_MS } from '@/utils/time/durations';
+import { DAY_MS, MINUTE_MS } from '@/utils/time/durations';
 import { buildQuotaColumns, type QuotaCellData } from './columns';
 import type { QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 
 const WEEK_HOURS = 7 * 24;
+const WEEK_MS = 7 * DAY_MS;
+/** Up to this much more used than elapsed still counts as on pace. */
+const PACE_AHEAD_SLACK = 0.05;
+/** This much less used than elapsed counts as under pace. */
+const PACE_UNDER_SLACK = 0.15;
 
 /** Multiplier in units of the provider's base paid plan (Claude Pro, ChatGPT Plus). */
 export function planWeight(type: QuotaProviderType, quota: QuotaCardState | undefined): number {
@@ -51,12 +59,15 @@ export interface PoolAccountInput {
   authIndex: string;
   type: QuotaProviderType;
   quota: QuotaCardState | undefined;
+  /** Team/Enterprise organization; null for personal accounts. */
+  organizationName: string | null;
 }
 
 export interface PoolAccount {
   key: string;
   label: string;
   authIndex: string;
+  organizationName: string | null;
   weight: number;
   /** Weekly percent left, 0..100. */
   remaining: number;
@@ -87,6 +98,50 @@ export interface PoolSummary {
   fiveHourRemainingPercent: number | null;
   /** Upcoming resets that give capacity back, soonest first. */
   resets: PoolResetStep[];
+  /** Null when no account reports when its week resets. */
+  pace: PoolPace | null;
+}
+
+export interface PoolPace {
+  /** Weighted share of the accounts' weekly windows already elapsed, 0..1. */
+  expected: number;
+  /** Weighted share of the pool already used, 0..1. */
+  actual: number;
+  status: 'on' | 'under' | 'ahead';
+  /** When the pool runs dry at the burn so far; only when ahead of pace. */
+  runsOutAtMs: number | null;
+}
+
+const clampUnit = (value: number) => Math.max(0, Math.min(1, value));
+
+/**
+ * Accounts without a reset time are left out: without it there is no way to
+ * tell how far into its week an account is.
+ */
+export function poolPace(accounts: PoolAccount[], nowMs: number): PoolPace | null {
+  const timed = accounts.filter((account) => account.resetAtMs !== null);
+  const totalWeight = timed.reduce((sum, account) => sum + account.weight, 0);
+  if (totalWeight === 0) return null;
+
+  let expected = 0;
+  let actual = 0;
+  for (const account of timed) {
+    const elapsed = clampUnit(1 - ((account.resetAtMs as number) - nowMs) / WEEK_MS);
+    const used = clampUnit((100 - account.remaining) / 100);
+    expected += (account.weight * elapsed) / totalWeight;
+    actual += (account.weight * used) / totalWeight;
+  }
+
+  if (actual < expected - PACE_UNDER_SLACK) {
+    return { expected, actual, status: 'under', runsOutAtMs: null };
+  }
+  if (actual <= expected + PACE_AHEAD_SLACK) {
+    return { expected, actual, status: 'on', runsOutAtMs: null };
+  }
+  // Pool burn per elapsed millisecond so far, carried over what's left.
+  const elapsedMs = expected * WEEK_MS;
+  const runsOutAtMs = elapsedMs > 0 ? nowMs + ((1 - actual) * elapsedMs) / actual : null;
+  return { expected, actual, status: 'ahead', runsOutAtMs };
 }
 
 export function buildPoolSummary(
@@ -113,6 +168,7 @@ export function buildPoolSummary(
       key: input.key,
       label: input.label,
       authIndex: input.authIndex,
+      organizationName: input.organizationName,
       weight: planWeight(input.type, input.quota),
       remaining: weekly.remaining,
       fiveHourRemaining: columns?.fiveHour?.remaining ?? null,
@@ -122,7 +178,13 @@ export function buildPoolSummary(
   const totalWeight = accounts.reduce((sum, account) => sum + account.weight, 0);
   const counts = { provider, accounts, notLoadedCount, monthlyCount, totalWeight };
   if (totalWeight === 0) {
-    return { ...counts, remainingPercent: 0, fiveHourRemainingPercent: null, resets: [] };
+    return {
+      ...counts,
+      remainingPercent: 0,
+      fiveHourRemainingPercent: null,
+      resets: [],
+      pace: null,
+    };
   }
 
   const share = (account: PoolAccount, percent: number) => (account.weight * percent) / totalWeight;
@@ -170,5 +232,11 @@ export function buildPoolSummary(
     }
   }
 
-  return { ...counts, remainingPercent, fiveHourRemainingPercent, resets };
+  return {
+    ...counts,
+    remainingPercent,
+    fiveHourRemainingPercent,
+    resets,
+    pace: poolPace(accounts, nowMs),
+  };
 }

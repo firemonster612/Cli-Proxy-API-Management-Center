@@ -182,6 +182,23 @@
   @include text-ellipsis;
 }
 
+/* Quiet outlines: routing state, not account state. The next pick is dashed,
+ * like its mark on the pool card: where traffic would go, not where it went. */
+.routeChip,
+.nextPickChip {
+  background: none;
+  color: var(--quota-muted);
+}
+
+.routeChip {
+  box-shadow: inset 0 0 0 1px var(--quota-hairline);
+}
+
+.nextPickChip {
+  outline: 1px dashed color-mix(in srgb, var(--quota-muted) 60%, transparent);
+  outline-offset: -1px;
+}
+
 /* Green is reserved for live traffic and healthy bars. */
 .activityLive,
 .activityIdle {

@@ -59,6 +59,18 @@ const normalizeTimestampToSeconds = (value: string): string => {
   return `${match[1]} ${match[2]}`;
 };
 
+/**
+ * Display form of a parsed log timestamp, day first: "2026-10-15 04:12:09.123"
+ * becomes "15/10/2026 04:12:09.123". Text only, so no time zone shifts; the
+ * raw line and downloads keep the original.
+ */
+export const formatLogTimestamp = (value: string): string => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](.*)$/);
+  if (!match) return value;
+  const [, year, month, day, time] = match;
+  return `${day}/${month}/${year} ${time}`;
+};
+
 const extractLatency = (text: string): string | undefined => {
   const match = text.match(LOG_LATENCY_REGEX);
   if (!match) return undefined;

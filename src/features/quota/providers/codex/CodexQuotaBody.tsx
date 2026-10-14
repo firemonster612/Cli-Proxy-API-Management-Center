@@ -127,7 +127,13 @@ export function CodexQuotaBody({ quota, classes }: QuotaBodyProps<CodexQuotaStat
           const windowLabel = window.labelKey
             ? t(window.labelKey, window.labelParams as Record<string, string | number>)
             : window.label;
-          const resetDisplay = buildResetDisplay(window.resetLabel, window.resetAtMs, now, locale);
+          // The label was baked at fetch time; rebuild from the instant when there is one.
+          const resetDisplay = buildResetDisplay(
+            window.resetAtMs == null ? window.resetLabel : null,
+            window.resetAtMs,
+            now,
+            locale
+          );
 
           const soon = window.id === soonestRowId;
 

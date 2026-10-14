@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi } from '@/services/api';
+import { authFilesApi, type InFlightAttempt } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -24,6 +24,7 @@ import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
+import { ActivityOverview } from './components/ActivityOverview';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaColumnsHeader } from './components/QuotaColumnsHeader';
 import { PoolSummary, type PoolCardData } from './components/PoolSummary';
@@ -33,7 +34,14 @@ import {
   QUOTA_TAB_ORDER,
   type QuotaTabId,
 } from './constants';
-import { buildTabCounts, classifyQuotaFiles, filterEntriesByTab, paginate } from './logic';
+import {
+  accountLabel,
+  buildTabCounts,
+  classifyQuotaFiles,
+  filterEntriesByTab,
+  paginate,
+  quotaOrganizationName,
+} from './logic';
 import type { QuotaFileEntry } from './logic';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import { hasQuotaColumns } from './columns';
@@ -41,10 +49,17 @@ import type { QuotaProviderType } from './providers/types';
 import { useBurnPins } from './hooks/useBurnPins';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
+import { useInFlightRequests } from './hooks/useInFlightRequests';
 import { useRecentRequests } from './hooks/useRecentRequests';
+import { useRoutingPreviews } from './hooks/useRoutingPreviews';
 import { bankedResetsFor, type BankedResets } from './bankedResets';
 import { buildPoolSummary } from './pool';
-import { currentRoutes, groupActivityByAccount } from './routing';
+import {
+  accountsByRequestId,
+  groupActivityByAccount,
+  latestRoutes,
+  type RequestLookup,
+} from './routing';
 import { useNow } from '@/hooks/useNow';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
@@ -69,6 +84,7 @@ const SKELETON_CARD_COUNT = 4;
 const QUOTA_AUTO_REFRESH_MS = 5 * 60_000;
 
 const entryKey = (entry: QuotaFileEntry) => `${entry.type}:${entry.file.name}`;
+const NO_ATTEMPTS: InFlightAttempt[] = [];
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -183,18 +199,56 @@ export function QuotaPage() {
   }, [entries, loading]);
 
   /* ---------- routing + pool ----------
-   * Activity comes from real completed requests; the pool aggregates every
-   * account of the providers it shows, not just the visible page. */
+   * Activity comes from real completed requests and core's in-flight list;
+   * "next pick" from core's routing preview for each provider on the board.
+   * The pool aggregates every account of the providers it shows, not just
+   * the visible page. */
 
   const now = useNow();
   const { enabled: historyEnabled, requests } = useRecentRequests(!disableControls);
+  const inFlight = useInFlightRequests(!disableControls);
+  const shownProviders = useMemo(
+    () => [...new Set(filteredEntries.map((entry) => entry.type))],
+    [filteredEntries]
+  );
+  const previews = useRoutingPreviews(shownProviders, !disableControls);
+
+  const entryByAuth = useMemo(
+    () => new Map(entries.map((entry) => [String(entry.file.authIndex ?? ''), entry])),
+    [entries]
+  );
+  const providerOf = useCallback(
+    (authIndex: string) => entryByAuth.get(authIndex)?.type,
+    [entryByAuth]
+  );
+  const lookup = useMemo<RequestLookup>(
+    () => ({
+      accountsByRequest: accountsByRequestId(requests),
+      labelOf: (authIndex) => {
+        const entry = entryByAuth.get(authIndex);
+        return entry ? accountLabel(entry.file) : authIndex;
+      },
+    }),
+    [requests, entryByAuth]
+  );
   const activityByAuth = useMemo(() => groupActivityByAccount(requests, now), [requests, now]);
-  const routes = useMemo(() => {
-    const typeByAuth = new Map(
-      entries.map((entry) => [String(entry.file.authIndex ?? ''), entry.type])
+  const routes = useMemo(() => latestRoutes(activityByAuth, providerOf), [activityByAuth, providerOf]);
+  const inFlightByAuth = useMemo(() => {
+    const byAuth = new Map<string, InFlightAttempt[]>();
+    inFlight?.attempts.forEach((attempt) =>
+      byAuth.set(attempt.authIndex, [...(byAuth.get(attempt.authIndex) ?? []), attempt])
     );
-    return currentRoutes(activityByAuth, now, (authIndex) => typeByAuth.get(authIndex));
-  }, [activityByAuth, entries, now]);
+    return byAuth;
+  }, [inFlight]);
+  const exclusionByAuth = useMemo(
+    () =>
+      new Map(
+        [...previews.values()].flatMap((preview) =>
+          preview.excluded.map((exclusion) => [exclusion.authIndex, exclusion] as const)
+        )
+      ),
+    [previews]
+  );
   const [openDetails, setOpenDetails] = useState<Set<string>>(() => new Set());
   const toggleDetails = useCallback((key: string) => {
     setOpenDetails((prev) => {
@@ -236,18 +290,17 @@ export function QuotaPage() {
         provider,
         providerEntries.map((entry) => ({
           key: entry.file.name,
-          label: entry.file.email || entry.file.name.replace(/\.json$/, ''),
+          label: accountLabel(entry.file),
           authIndex: String(entry.file.authIndex ?? ''),
           type: entry.type,
           quota: getPoolQuota(entry),
+          organizationName: quotaOrganizationName(entry.type, getPoolQuota(entry)),
         })),
         now
       );
       if (!summary || summary.accounts.length + summary.monthlyCount === 0) return [];
       const route = routes.get(provider);
-      const routeEntry = route
-        ? providerEntries.find((entry) => String(entry.file.authIndex ?? '') === route.authIndex)
-        : undefined;
+      const preview = previews.get(provider);
       const banked = providerEntries
         .map((entry) => bankedResetsFor(entry.type, getPoolQuota(entry)))
         .filter((value): value is BankedResets => value !== null);
@@ -255,12 +308,14 @@ export function QuotaPage() {
         {
           summary,
           route,
-          routeLabel: routeEntry ? routeEntry.file.email || routeEntry.file.name : null,
+          routeLabel: route ? lookup.labelOf(route.authIndex) : null,
+          preview,
+          previewLabel: preview?.chosenAuthIndex ? lookup.labelOf(preview.chosenAuthIndex) : null,
           banked,
         },
       ];
     });
-  }, [getPoolQuota, now, poolEntries, routes, tab]);
+  }, [getPoolQuota, lookup, now, poolEntries, previews, routes, tab]);
 
   /* ---------- 加载与操作 ---------- */
 
@@ -362,6 +417,17 @@ export function QuotaPage() {
         />
       )}
 
+      {!loading && (
+        <ActivityOverview
+          requests={requests}
+          inFlight={inFlight}
+          lookup={lookup}
+          providerOf={providerOf}
+          historyEnabled={historyEnabled}
+          resolvedTheme={resolvedTheme}
+        />
+      )}
+
       <section className={styles.workbench}>
         <div className={styles.tabsRow} data-reveal>
           <ProviderTabs
@@ -418,8 +484,15 @@ export function QuotaPage() {
                   key={key}
                   entry={entry}
                   resolvedTheme={resolvedTheme}
-                  activity={activityByAuth.get(authIndex)}
-                  routedNow={routes.get(entry.type)?.authIndex === authIndex}
+                  routing={{
+                    activity: activityByAuth.get(authIndex),
+                    inFlight: inFlightByAuth.get(authIndex) ?? NO_ATTEMPTS,
+                    observedAtMs: inFlight?.observedAtMs ?? now,
+                    latestRoute: routes.get(entry.type)?.authIndex === authIndex,
+                    nextPick: previews.get(entry.type)?.chosenAuthIndex === authIndex,
+                    exclusion: exclusionByAuth.get(authIndex),
+                  }}
+                  lookup={lookup}
                   historyEnabled={historyEnabled}
                   detailsOpen={openDetails.has(key)}
                   onToggleDetails={() => toggleDetails(key)}

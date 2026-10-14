@@ -2,13 +2,15 @@
  * Long-form time copy for places with room to spell it out:
  *
  *   Resets in 1 day, 7 hours
- *   Wed, Oct 15, 4:12 AM
+ *   Wed, 15 Oct, 4:12 AM
  *
  * The compact "1d 7h" countdown stays in the bar cells (compactCountdown.ts).
  * Pure; `nowMs` and the translator are passed in.
  */
 
 import type { TFunction } from 'i18next';
+import { formatCalendarDateTime, type ClockStyle } from '@/utils/time/calendar';
+import { formatCompactCountdown } from './compactCountdown';
 import { DAY_MS, HOUR_MS, MINUTE_MS } from '@/utils/time/durations';
 
 /** The two largest units: "1 day, 7 hours", "3 hours, 5 minutes", "12 minutes". */
@@ -34,36 +36,27 @@ export const formatResetsIn = (targetMs: number, nowMs: number, t: TFunction): s
 export const formatExpiresIn = (targetMs: number, nowMs: number, t: TFunction): string =>
   t('quota_management.expires_in', { duration: formatLongDuration(targetMs - nowMs, t) });
 
-// Exact instants are always American (weekday, date, 12-hour clock) by request;
-// the relative copy around them is what gets localized.
-const instantFormatter = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-});
+// Exact instants keep English names and the 12-hour clock by request, with the
+// day before the month; the relative copy around them is what gets localized.
+const INSTANT_LOCALE = 'en-US';
+const INSTANT_CLOCK: ClockStyle = { hour: 'numeric', minute: '2-digit', hour12: true };
 
-/** "Wed, Oct 15, 4:12 AM" in the viewer's time zone. */
-export const formatResetInstant = (atMs: number): string => instantFormatter.format(atMs);
-
-const shortInstantFormatter = new Intl.DateTimeFormat('en-US', {
-  weekday: 'short',
-  month: 'numeric',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-});
+/** "Wed, 15 Oct, 4:12 AM" in the viewer's time zone. */
+export const formatResetInstant = (atMs: number): string =>
+  formatCalendarDateTime(atMs, INSTANT_LOCALE, { weekday: true, month: 'short' }, INSTANT_CLOCK);
 
 /**
- * "Wed, 10/15, 4:12 AM": the same instant, compact enough for a bar cell.
+ * "Wed, 15/10, 4:12 AM": the same instant, compact enough for a bar cell.
  * A no-break space keeps "4:12 AM" whole when the cell wraps (engines differ
  * on whether Intl emits a breakable space there).
  */
 export const formatResetInstantShort = (atMs: number): string =>
-  shortInstantFormatter.format(atMs).replace(/\s(AM|PM)$/, ' $1');
+  formatCalendarDateTime(
+    atMs,
+    INSTANT_LOCALE,
+    { weekday: true, month: 'numeric' },
+    INSTANT_CLOCK
+  ).replace(/\s(AM|PM)$/, '\u00a0$1');
 
 /** "just now" / "4m ago" / "2h ago" / "3d ago": minute resolution, matching useNow. */
 export function formatAgo(atMs: number, nowMs: number, t: TFunction): string {
@@ -74,6 +67,10 @@ export function formatAgo(atMs: number, nowMs: number, t: TFunction): string {
   if (hours < 24) return t('quota_management.ago_hours', { count: hours });
   return t('quota_management.ago_days', { count: Math.floor(hours / 24) });
 }
+
+/** How long an attempt has run: "42s" under a minute, then "3m", "1h 05m". */
+export const formatRunningFor = (ms: number): string =>
+  ms < MINUTE_MS ? `${Math.max(0, Math.floor(ms / 1000))}s` : formatCompactCountdown(ms, 0);
 
 const clockFormatters = new Map<string, Intl.DateTimeFormat>();
 

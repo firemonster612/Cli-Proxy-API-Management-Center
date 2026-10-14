@@ -6,12 +6,19 @@
 import { describe, expect, test } from 'bun:test';
 import type { TFunction } from 'i18next';
 import { bankedResetsFor } from '@/features/quota/bankedResets';
-import { buildPoolSummary, planWeight } from '@/features/quota/pool';
+import { buildPoolSummary, planWeight, poolPace, type PoolAccount } from '@/features/quota/pool';
 import {
   resolveClaudeOrganizationName,
   resolveClaudePlanType,
 } from '@/features/quota/providers/claude/data';
-import { currentRoutes, groupActivityByAccount, isLive } from '@/features/quota/routing';
+import {
+  accountsByRequestId,
+  activityBuckets,
+  groupActivityByAccount,
+  isLive,
+  latestRoutes,
+  retriedOn,
+} from '@/features/quota/routing';
 import {
   formatLongDuration,
   formatResetInstant,
@@ -57,6 +64,7 @@ describe('buildPoolSummary', () => {
       authIndex: '1',
       type: 'claude' as const,
       quota: claude(50, 'max_20x', NOW + 30 * HOUR),
+      organizationName: null,
     },
     {
       key: 'small',
@@ -64,8 +72,16 @@ describe('buildPoolSummary', () => {
       authIndex: '2',
       type: 'claude' as const,
       quota: claude(100, 'max_5x', NOW + 2 * HOUR),
+      organizationName: 'Northwind Labs',
     },
-    { key: 'idle', label: 'idle', authIndex: '3', type: 'claude' as const, quota: undefined },
+    {
+      key: 'idle',
+      label: 'idle',
+      authIndex: '3',
+      type: 'claude' as const,
+      quota: undefined,
+      organizationName: null,
+    },
   ];
 
   test('weights remaining capacity by plan and counts unloaded accounts', () => {
@@ -109,13 +125,78 @@ describe('buildPoolSummary', () => {
     const pool = buildPoolSummary(
       'codex',
       [
-        { key: 'plus', label: '', authIndex: '1', type: 'codex', quota: codex('weekly', 168) },
-        { key: 'team', label: '', authIndex: '2', type: 'codex', quota: codex('monthly', 720) },
+        {
+          key: 'plus',
+          label: '',
+          authIndex: '1',
+          type: 'codex',
+          quota: codex('weekly', 168),
+          organizationName: null,
+        },
+        {
+          key: 'team',
+          label: '',
+          authIndex: '2',
+          type: 'codex',
+          quota: codex('monthly', 720),
+          organizationName: 'Northwind Labs',
+        },
       ],
       NOW
     );
     expect(pool?.accounts.map((account) => account.key)).toEqual(['plus']);
     expect(pool?.monthlyCount).toBe(1);
+  });
+
+  test('carries each resetting account\'s organization for the next-reset line', () => {
+    const pool = buildPoolSummary('claude', inputs, NOW);
+    expect(pool?.resets[0].accounts[0].organizationName).toBe('Northwind Labs');
+  });
+});
+
+describe('poolPace', () => {
+  const DAY = 24 * HOUR;
+  const account = (weight: number, remaining: number, resetInMs: number | null): PoolAccount => ({
+    key: `${weight}-${remaining}`,
+    label: '',
+    authIndex: '',
+    organizationName: null,
+    weight,
+    remaining,
+    fiveHourRemaining: null,
+    resetAtMs: resetInMs === null ? null : NOW + resetInMs,
+  });
+  const halfWeek = 3.5 * DAY;
+
+  test('is on pace up to 5 points over the elapsed share of the week', () => {
+    // Half the week gone; 55% used is the edge, 56% is ahead.
+    expect(poolPace([account(1, 45, halfWeek)], NOW)?.status).toBe('on');
+    expect(poolPace([account(1, 44, halfWeek)], NOW)?.status).toBe('ahead');
+  });
+
+  test('is under pace more than 15 points below', () => {
+    expect(poolPace([account(1, 66, halfWeek)], NOW)?.status).toBe('under');
+    expect(poolPace([account(1, 64, halfWeek)], NOW)?.status).toBe('on');
+  });
+
+  test('weights elapsed and used shares by plan', () => {
+    // A 20x that just reset and is untouched, a 5x at the end of a spent week: 5/25 on both sides.
+    const pace = poolPace([account(20, 100, 7 * DAY), account(5, 0, 0)], NOW);
+    expect(pace?.expected).toBeCloseTo(0.2);
+    expect(pace?.actual).toBeCloseTo(0.2);
+    expect(pace?.status).toBe('on');
+  });
+
+  test('projects when an ahead-of-pace pool runs out at the burn so far', () => {
+    // 75% used in 3.5 days; the last 25% lasts a third as long: 28 hours.
+    const pace = poolPace([account(1, 25, halfWeek)], NOW);
+    expect(pace?.status).toBe('ahead');
+    expect(pace?.runsOutAtMs).toBe(NOW + 28 * HOUR);
+  });
+
+  test('leaves out accounts with no reset time, and is null when none have one', () => {
+    expect(poolPace([account(1, 100, null)], NOW)).toBeNull();
+    expect(poolPace([account(1, 45, halfWeek), account(20, 0, null)], NOW)?.status).toBe('on');
   });
 });
 
@@ -168,9 +249,15 @@ describe('routing activity', () => {
     latencyMs: null,
     inputTokens: null,
     outputTokens: null,
+    requestId: null,
+    clientKeyLabel: null,
+    clientKeyFingerprint: null,
+    userAgent: null,
+    clientIp: null,
   });
+  const MINUTE = 60_000;
 
-  test('groups per account with a model mix, and routes to the newest live account', () => {
+  test('groups per account with a model mix, and routes to the newest account', () => {
     const activity = groupActivityByAccount(
       [
         request('1', 30_000, 'opus'),
@@ -184,8 +271,44 @@ describe('routing activity', () => {
       { model: 'opus', count: 2 },
       { model: 'sonnet', count: 1 },
     ]);
-    const routes = currentRoutes(activity, NOW, () => 'claude');
+    const routes = latestRoutes(activity, () => 'claude');
     expect(routes.get('claude')?.authIndex).toBe('1');
+  });
+
+  test('keeps the last route when nothing is live, so the board can say where traffic last went', () => {
+    const activity = groupActivityByAccount(
+      [request('1', 40 * MINUTE, 'opus'), request('2', 23 * MINUTE, 'opus')],
+      NOW
+    );
+    const route = latestRoutes(activity, () => 'claude').get('claude');
+    expect(route?.authIndex).toBe('2');
+    expect(isLive(route, NOW)).toBe(false);
+  });
+
+  test('buckets the last hour into twelve five-minute slices, oldest first, failures counted', () => {
+    const failed = { ...request('1', 2 * MINUTE, 'opus'), failed: true };
+    const buckets = activityBuckets(
+      [request('1', 1 * MINUTE, 'opus'), failed, request('1', 7 * MINUTE, 'opus'), request('1', 61 * MINUTE, 'opus')],
+      NOW
+    );
+    expect(buckets).toHaveLength(12);
+    expect(buckets[11]).toEqual({ count: 2, failures: 1 });
+    expect(buckets[10]).toEqual({ count: 1, failures: 0 });
+    expect(buckets.slice(0, 10).every((bucket) => bucket.count === 0)).toBe(true);
+  });
+
+  test('finds the other accounts a retried request went to', () => {
+    const first = { ...request('2', 3 * MINUTE, 'opus'), requestId: 'ab12cd34', failed: true };
+    const retry = { ...request('1', 2 * MINUTE, 'opus'), requestId: 'ab12cd34' };
+    const alone = { ...request('1', MINUTE, 'opus'), requestId: 'ffff0000' };
+    const lookup = {
+      accountsByRequest: accountsByRequestId([first, retry, alone]),
+      labelOf: (authIndex: string) => authIndex,
+    };
+    expect(retriedOn(retry, lookup)).toEqual(['2']);
+    expect(retriedOn(first, lookup)).toEqual(['1']);
+    expect(retriedOn(alone, lookup)).toEqual([]);
+    expect(retriedOn(request('1', MINUTE, 'opus'), lookup)).toEqual([]);
   });
 
   test('a long request is live when it completes, not when it started', () => {
@@ -231,14 +354,14 @@ describe('formatLongDuration', () => {
 });
 
 describe('formatResetInstant', () => {
-  test('is American weekday, date and 12-hour clock in the local zone', () => {
+  test('is English weekday, day before month and 12-hour clock in the local zone', () => {
     // Local-time constructor, so the expectation holds in any time zone.
-    expect(formatResetInstant(new Date(2026, 9, 15, 4, 12).getTime())).toBe('Thu, Oct 15, 4:12 AM');
+    expect(formatResetInstant(new Date(2026, 9, 15, 4, 12).getTime())).toBe('Thu, 15 Oct, 4:12 AM');
   });
 
   test('has a short numeric-date variant for the bar cells that never splits the clock', () => {
     expect(formatResetInstantShort(new Date(2026, 9, 15, 17, 34).getTime())).toBe(
-      'Thu, 10/15, 5:34\u00a0PM'
+      'Thu, 15/10, 5:34\u00a0PM'
     );
   });
 });

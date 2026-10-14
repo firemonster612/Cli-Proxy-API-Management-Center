@@ -40,11 +40,11 @@ describe('QuotaTimeline rendering', () => {
       })
     );
 
-    // The next weekly period starts on Sunday 08/02. The button remains the
+    // The next weekly period starts on Sunday 02/08 (day first). The button remains the
     // shortcut back to Today (aria-label/title), but its visible label now
     // reflects the period selected with the previous/next arrows.
     expect(markup).toMatch(
-      /<button type="button" aria-label="[^"]+" title="[^"]+">08\/02<\/button>/
+      /<button type="button" aria-label="[^"]+" title="[^"]+">02\/08<\/button>/
     );
   });
 
@@ -148,7 +148,7 @@ describe('QuotaTimeline rendering', () => {
     );
 
     expect(markup).toContain('role="img"');
-    expect(markup).toContain('08/03 12:00');
+    expect(markup).toContain('03/08 12:00');
   });
 
   test('stays hidden before any credential exposes a usable quota window', () => {

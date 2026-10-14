@@ -1,43 +1,49 @@
 /**
- * Expanded under a row: what this account actually served, from core's
- * recent-request history. Model mix for the last hour, then the newest
- * requests with time, model, tokens, latency and outcome.
+ * Expanded under a row: what this account is doing and has served, from
+ * core's in-flight list and recent-request history. Running attempts first,
+ * then the last hour's model mix, then the newest requests.
  */
 
 import { useTranslation } from 'react-i18next';
-import { useNow } from '@/hooks/useNow';
-import type { AccountActivity } from '../routing';
-import { formatAgo, formatClock } from '../timeCopy';
+import type { InFlightAttempt } from '@/services/api';
+import type { AccountActivity, RequestLookup } from '../routing';
+import { InFlightList } from './InFlightList';
+import { RequestTable } from './RequestTable';
 import styles from './RoutingDetails.module.scss';
 
 const SHOWN_REQUESTS = 12;
 
-const formatTokens = (value: number | null): string => {
-  if (value === null) return '–';
-  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k`;
-  return String(value);
-};
-
 export function RoutingDetails({
   activity,
+  inFlight,
+  observedAtMs,
+  lookup,
   historyEnabled,
 }: {
   activity: AccountActivity | undefined;
+  inFlight: InFlightAttempt[];
+  observedAtMs: number;
+  lookup: RequestLookup;
   /** False when core's usage statistics are off, so no routing data exists. */
   historyEnabled: boolean;
 }) {
-  const { t, i18n } = useTranslation();
-  const now = useNow();
+  const { t } = useTranslation();
+  const running = <InFlightList attempts={inFlight} observedAtMs={observedAtMs} />;
 
-  if (!historyEnabled) {
-    return <div className={styles.details}>{t('quota_management.routing_history_disabled')}</div>;
-  }
-  if (!activity) {
-    return <div className={styles.details}>{t('quota_management.routing_no_requests')}</div>;
+  if (!historyEnabled || !activity) {
+    return (
+      <div className={styles.details}>
+        {running}
+        {historyEnabled
+          ? t('quota_management.routing_no_requests')
+          : t('quota_management.routing_history_disabled')}
+      </div>
+    );
   }
 
   return (
     <div className={styles.details}>
+      {running}
       <div className={styles.summary}>
         <span>
           {t('quota_management.routing_last_hour', { count: activity.recentCount })}
@@ -58,41 +64,7 @@ export function RoutingDetails({
         </span>
       </div>
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>{t('quota_management.routing_col_time')}</th>
-            <th>{t('quota_management.routing_col_model')}</th>
-            <th className={styles.num}>{t('quota_management.routing_col_tokens')}</th>
-            <th className={styles.num}>{t('quota_management.routing_col_latency')}</th>
-            <th className={styles.num}>{t('quota_management.routing_col_result')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {activity.requests.slice(0, SHOWN_REQUESTS).map((request, index) => (
-            <tr key={`${request.startedAtMs}-${index}`}>
-              <td>
-                <span className={styles.clock}>
-                  {formatClock(request.startedAtMs, i18n.resolvedLanguage)}
-                </span>
-                <span className={styles.ago}>{formatAgo(request.startedAtMs, now, t)}</span>
-              </td>
-              <td className={styles.model}>{request.model}</td>
-              <td className={styles.num}>
-                {formatTokens(request.inputTokens)} → {formatTokens(request.outputTokens)}
-              </td>
-              <td className={styles.num}>
-                {request.latencyMs === null ? '–' : `${(request.latencyMs / 1000).toFixed(1)}s`}
-              </td>
-              <td className={`${styles.num} ${request.failed ? styles.failed : styles.ok}`}>
-                {request.failed
-                  ? (request.statusCode ?? t('quota_management.routing_failed'))
-                  : t('quota_management.routing_ok')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <RequestTable requests={activity.requests.slice(0, SHOWN_REQUESTS)} lookup={lookup} />
       {activity.requests.length > SHOWN_REQUESTS && (
         <div className={styles.more}>
           {t('quota_management.routing_more', { count: activity.requests.length - SHOWN_REQUESTS })}

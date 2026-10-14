@@ -60,10 +60,12 @@ describe('CodexQuotaBody', () => {
     rateLimitResetCreditsAvailableCount: 1,
   };
 
-  test('renders a window reset as absolute plus countdown', () => {
+  test('renders a window reset as absolute plus countdown, rebuilt from the instant', () => {
     const markup = renderToStaticMarkup(createElement(CodexQuotaBody, { quota, classes }));
 
-    expect(markup).toContain('08-02 18:00');
+    // The cached label may carry an older date order; the instant wins.
+    expect(markup).not.toContain('08-02 18:00');
+    expect(markup).toContain(formatInstantShort(now + 3 * HOUR_MS));
     expect(markup).toContain('quotaResetRelative');
     expect(markup).toMatch(/3 hours/);
   });
@@ -191,8 +193,8 @@ describe('ClaudeQuotaBody', () => {
     };
     const markup = renderToStaticMarkup(createElement(ClaudeQuotaBody, { quota, classes }));
 
-    expect(markup).toContain('08-02 17:00');
-    expect(markup).toContain('08-06 04:00');
+    expect(markup).toContain(formatInstantShort(now + 2 * HOUR_MS));
+    expect(markup).toContain(formatInstantShort(now + 4 * DAY_MS));
     expect(markup).toMatch(/2 hours/);
     expect(markup).toMatch(/4 days/);
   });

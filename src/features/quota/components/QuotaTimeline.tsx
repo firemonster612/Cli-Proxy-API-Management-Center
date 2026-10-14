@@ -17,6 +17,7 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRelativeInstant, TYPE_COLORS } from '@/utils/quota';
 import { useNow } from '@/hooks/useNow';
+import { formatCalendarDate } from '@/utils/time/calendar';
 import type { ResolvedTheme, ThemeColors } from '@/types';
 import {
   buildTimelineLane,
@@ -34,10 +35,8 @@ import styles from './QuotaTimeline.module.scss';
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 const pad = (value: number) => String(value).padStart(2, '0');
-const formatDay = (ms: number) => {
-  const d = new Date(ms);
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
-};
+const formatDay = (ms: number) =>
+  formatCalendarDate(ms, undefined, { day: '2-digit', month: '2-digit' });
 const formatTime = (ms: number) => {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;

@@ -7,8 +7,11 @@
  *
  * An account whose weekly window is exhausted is crossed out with a pen
  * stroke, with a stamp saying when it comes back. The account currently
- * receiving the provider's traffic gets a green marker; the activity button
- * expands the requests it served (RoutingDetails).
+ * receiving the provider's traffic gets a green marker; with nothing live, the
+ * account routed to last is marked instead, and core's pick for the next new
+ * request gets a quiet marker of its own. Every row carries an activity strip
+ * for the last hour; the activity button expands what is running and the
+ * requests it served (RoutingDetails).
  *
  * Burn pins ("only burn this account") open from a right-click anywhere on
  * the row or from the flame button, independent of the quota load state.
@@ -24,7 +27,7 @@ import {
   IconFlame,
   IconRefreshCw,
 } from '@/components/ui/icons';
-import type { BurnPin } from '@/services/api';
+import type { BurnPin, InFlightAttempt, RoutingExclusion } from '@/services/api';
 import type { ClaudeQuotaState, CodexQuotaState, ResolvedTheme } from '@/types';
 import { useNow } from '@/hooks/useNow';
 import { buildResetDisplay, resolveQuotaErrorMessage, resolveResetMs } from '@/utils/quota';
@@ -32,13 +35,19 @@ import { formatDateTimeValue } from '@/utils/format';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
-import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
+import {
+  accountLabel,
+  isQuotaRefreshDisabled,
+  quotaOrganizationName,
+  type QuotaFileEntry,
+} from '../logic';
 import { buildQuotaColumns, hasQuotaColumns, isRunningLow } from '../columns';
 import { formatBurnRemaining, type BurnChoice } from '../hooks/useBurnPins';
 import { bankedResetsFor, supportsBankedResets } from '../bankedResets';
 import { isWeeklySpent } from '../pool';
-import { isLive, type AccountActivity } from '../routing';
+import { activityBuckets, isLive, type AccountActivity, type RequestLookup } from '../routing';
 import { formatAgo, formatResetInstant, formatResetsIn } from '../timeCopy';
+import { ActivityStrip } from './ActivityStrip';
 import { pointUnder } from './anchorPoint';
 import { BankedResetsButton } from './BankedResets';
 import { BurnMenu } from './BurnMenu';
@@ -51,6 +60,24 @@ import styles from './QuotaCard.module.scss';
 /** Typed contract over the QuotaBody module (missing keys throw at module init). */
 const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
+const NO_ACTIVITY = activityBuckets([], 0);
+
+/** Where this account stands in routing, resolved by the page. */
+export interface RowRouting {
+  /** Requests this account served, from core's recent-request history. */
+  activity?: AccountActivity;
+  /** Attempts running on this account now. */
+  inFlight: InFlightAttempt[];
+  /** Server clock of the in-flight snapshot. */
+  observedAtMs: number;
+  /** This account served the provider's newest request. */
+  latestRoute: boolean;
+  /** Core would send a new request here. */
+  nextPick: boolean;
+  /** Why core skips this account for new requests. */
+  exclusion?: RoutingExclusion;
+}
+
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
   quota?: QuotaCardState;
@@ -61,10 +88,8 @@ export type QuotaCardProps = {
   /** First-paint cascade delay; null = no entrance (tab switch / paging / refresh mounts). */
   entranceDelayMs?: number | null;
   resolvedTheme: ResolvedTheme;
-  /** Requests this account served, from core's recent-request history. */
-  activity?: AccountActivity;
-  /** This account served the provider's newest request. */
-  routedNow: boolean;
+  routing: RowRouting;
+  lookup: RequestLookup;
   /** False when core's usage statistics are off, so no routing data exists. */
   historyEnabled: boolean;
   detailsOpen: boolean;
@@ -74,10 +99,6 @@ export type QuotaCardProps = {
   onBurn: (choice: BurnChoice) => void;
   onStopBurning: () => void;
 };
-
-/** The email is the identity; the filename only disambiguates in the tooltip. */
-const identityFor = (name: string, email?: string): string =>
-  email && email.trim() !== '' ? email : name.replace(/\.json$/, '');
 
 export function QuotaCard(props: QuotaCardProps) {
   const {
@@ -89,8 +110,8 @@ export function QuotaCard(props: QuotaCardProps) {
     burnBusy,
     entranceDelayMs,
     resolvedTheme,
-    activity,
-    routedNow,
+    routing,
+    lookup,
     historyEnabled,
     detailsOpen,
     onToggleDetails,
@@ -100,6 +121,7 @@ export function QuotaCard(props: QuotaCardProps) {
     onStopBurning,
   } = props;
   const { t, i18n } = useTranslation();
+  const { activity, inFlight, exclusion } = routing;
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
   const status = quota?.status ?? 'idle';
@@ -145,11 +167,10 @@ export function QuotaCard(props: QuotaCardProps) {
   const canUseBanked =
     quota !== undefined && Boolean(adapter.resetQuota) && Boolean(adapter.canResetQuota?.(quota));
   const providerIcon = getAuthFileIcon(entry.type, resolvedTheme);
-  const organizationName =
-    quota?.status === 'success' && (entry.type === 'claude' || entry.type === 'codex')
-      ? ((quota as ClaudeQuotaState | CodexQuotaState).organizationName ?? null)
-      : null;
+  const organizationName = quotaOrganizationName(entry.type, quota);
   const live = isLive(activity, now);
+  const routedNow = routing.latestRoute && live;
+  const routedLast = routing.latestRoute && !live;
 
   const columnar = hasQuotaColumns(entry.type);
   const low = isRunningLow(columns);
@@ -166,9 +187,10 @@ export function QuotaCard(props: QuotaCardProps) {
         : pin?.indefinite
           ? t('quota_management.burn_chip_indefinite')
           : null;
-  const identity = identityFor(file.name, file.email);
+  const identity = accountLabel(file);
 
-  // Identity tooltip: filename always; Claude extra-usage spend when enabled.
+  // Identity tooltip: filename always; Claude extra-usage spend when enabled;
+  // why routing skips the account, when it does.
   const extraUsage =
     entry.type === 'claude' ? (quota as ClaudeQuotaState | undefined)?.extraUsage : null;
   const identityTooltip = (
@@ -180,6 +202,19 @@ export function QuotaCard(props: QuotaCardProps) {
           <span className={styles.tooltipMono}>
             {`$${(extraUsage.used_credits / 100).toFixed(2)} / $${(extraUsage.monthly_limit / 100).toFixed(2)}`}
           </span>
+        </div>
+      )}
+      {exclusion && (
+        <div className={styles.tooltipMuted}>
+          {t('quota_management.routing_excluded', {
+            reason: t(`quota_management.routing_excluded_reason_${exclusion.reason}`, {
+              defaultValue: exclusion.reason,
+            }),
+          })}
+          {exclusion.retryAtMs !== null &&
+            ` · ${t('quota_management.routing_excluded_until', {
+              time: formatResetInstant(exclusion.retryAtMs),
+            })}`}
         </div>
       )}
     </div>
@@ -286,7 +321,7 @@ export function QuotaCard(props: QuotaCardProps) {
         burning ? styles.burning : '',
         low ? styles.low : '',
         spent ? styles.spent : '',
-        routedNow && live ? styles.routed : '',
+        routedNow ? styles.routed : '',
       ].join(' ')}
       style={entranceStyle}
       onContextMenu={openMenuAtPointer}
@@ -324,6 +359,16 @@ export function QuotaCard(props: QuotaCardProps) {
               {burnModeLabel && <span className={styles.chipDetail}>{burnModeLabel}</span>}
             </span>
           )}
+          {routedLast && (
+            <span className={`${styles.chip} ${styles.routeChip}`}>
+              {t('quota_management.routing_chip_last')}
+            </span>
+          )}
+          {routing.nextPick && (
+            <span className={`${styles.chip} ${styles.nextPickChip}`}>
+              {t('quota_management.routing_chip_next')}
+            </span>
+          )}
         </span>
         {activity && (
           <span className={live ? styles.activityLive : styles.activityIdle}>
@@ -331,6 +376,9 @@ export function QuotaCard(props: QuotaCardProps) {
               ? t('quota_management.routing_live', { ago: formatAgo(activity.lastAtMs, now, t) })
               : t('quota_management.routing_last', { ago: formatAgo(activity.lastAtMs, now, t) })}
           </span>
+        )}
+        {historyEnabled && (
+          <ActivityStrip buckets={activity?.buckets ?? NO_ACTIVITY} inFlight={inFlight.length} />
         )}
       </HoverCard>
 
@@ -415,7 +463,13 @@ export function QuotaCard(props: QuotaCardProps) {
 
       {detailsOpen && (
         <div className={styles.detailsSlot}>
-          <RoutingDetails activity={activity} historyEnabled={historyEnabled} />
+          <RoutingDetails
+            activity={activity}
+            inFlight={inFlight}
+            observedAtMs={routing.observedAtMs}
+            lookup={lookup}
+            historyEnabled={historyEnabled}
+          />
         </div>
       )}
 

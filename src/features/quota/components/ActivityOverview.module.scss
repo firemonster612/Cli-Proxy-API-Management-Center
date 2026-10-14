@@ -1,0 +1,114 @@
+@use '../../../styles/mixins' as *;
+
+.overview {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--quota-hairline);
+  border-bottom: 1px solid var(--quota-hairline);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--quota-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.chevron {
+  flex: none;
+  color: var(--quota-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+
+.chevronOpen {
+  transform: none;
+}
+
+.title {
+  flex: none;
+  font-weight: 600;
+}
+
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--quota-muted);
+  @include text-ellipsis;
+}
+
+.failureMark {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--quota-danger);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 0 16px 22px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.providers {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.providerRow {
+  display: contents;
+}
+
+.providerName {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.providerCount {
+  color: var(--quota-muted);
+}
+
+.failures {
+  color: var(--quota-danger);
+}
+
+.empty {
+  color: var(--quota-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { formatCalendarDate } from '@/utils/time/calendar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
@@ -83,11 +84,11 @@ const formatReleaseDate = (value: string, locale: string) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
+  return formatCalendarDate(date.getTime(), locale, {
     day: '2-digit',
-  }).format(date);
+    month: '2-digit',
+    year: true,
+  });
 };
 
 function StoreCardLogo({ src }: { src: string }) {

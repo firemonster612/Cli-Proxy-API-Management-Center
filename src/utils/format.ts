@@ -1,4 +1,5 @@
 import { parseTimestamp } from './timestamp';
+import { formatNumericDate, formatNumericDateTime } from './time/calendar';
 
 /**
  * 格式化工具函数
@@ -104,7 +105,7 @@ export function formatUnixTimestamp(value: unknown, locale?: string): string {
   })();
 
   if (Number.isNaN(date.getTime())) return '';
-  return locale ? date.toLocaleString(locale) : date.toLocaleString();
+  return formatNumericDateTime(date.getTime(), locale);
 }
 
 export function parseDateValue(value: unknown): Date | null {
@@ -121,11 +122,11 @@ export function parseDateValue(value: unknown): Date | null {
 export function formatDateValue(value: unknown, locale?: string): string {
   const date = parseDateValue(value);
   if (!date) return '';
-  return locale ? date.toLocaleDateString(locale) : date.toLocaleDateString();
+  return formatNumericDate(date.getTime(), locale);
 }
 
 export function formatDateTimeValue(value: unknown, locale?: string): string {
   const date = parseDateValue(value);
   if (!date) return '';
-  return locale ? date.toLocaleString(locale) : date.toLocaleString();
+  return formatNumericDateTime(date.getTime(), locale);
 }
