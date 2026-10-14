@@ -6,6 +6,7 @@
 
 import { useTranslation } from 'react-i18next';
 import type { InFlightAttempt } from '@/services/api';
+import { failuresCopy, requestsCopy } from '../activityCopy';
 import type { AccountActivity, RequestLookup } from '../routing';
 import { InFlightList } from './InFlightList';
 import { RequestTable } from './RequestTable';
@@ -41,18 +42,19 @@ export function RoutingDetails({
     );
   }
 
+  const counts = {
+    requests: activity.recentCount,
+    failures: activity.recentFailures,
+    partial: activity.partial,
+  };
+  const failures = failuresCopy(t, counts);
   return (
     <div className={styles.details}>
       {running}
       <div className={styles.summary}>
         <span>
-          {t('quota_management.routing_last_hour', { count: activity.recentCount })}
-          {activity.recentFailures > 0 && (
-            <span className={styles.failures}>
-              {' · '}
-              {t('quota_management.routing_failures', { count: activity.recentFailures })}
-            </span>
-          )}
+          {requestsCopy(t, counts)}
+          {failures && <span className={styles.failures}> · {failures}</span>}
         </span>
         <span className={styles.models}>
           {activity.models.map((entry) => (

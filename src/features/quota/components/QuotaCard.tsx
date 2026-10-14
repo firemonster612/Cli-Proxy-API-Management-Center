@@ -62,20 +62,26 @@ const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
 const NO_ACTIVITY = activityBuckets([], 0);
 
+/** Why core skips this account for new requests of the preview's model. */
+export interface RowExclusion extends RoutingExclusion {
+  model: string;
+}
+
 /** Where this account stands in routing, resolved by the page. */
 export interface RowRouting {
   /** Requests this account served, from core's recent-request history. */
   activity?: AccountActivity;
   /** Attempts running on this account now. */
   inFlight: InFlightAttempt[];
+  /** Core left attempts out of its in-flight list, so the count is a lower bound. */
+  inFlightTruncated: boolean;
   /** Server clock of the in-flight snapshot. */
   observedAtMs: number;
-  /** This account served the provider's newest request. */
-  latestRoute: boolean;
+  /** The provider's traffic is going here now, or went here last. */
+  route: 'live' | 'last' | null;
   /** Core would send a new request here. */
   nextPick: boolean;
-  /** Why core skips this account for new requests. */
-  exclusion?: RoutingExclusion;
+  exclusion?: RowExclusion;
 }
 
 export type QuotaCardProps = {
@@ -169,8 +175,8 @@ export function QuotaCard(props: QuotaCardProps) {
   const providerIcon = getAuthFileIcon(entry.type, resolvedTheme);
   const organizationName = quotaOrganizationName(entry.type, quota);
   const live = isLive(activity, now);
-  const routedNow = routing.latestRoute && live;
-  const routedLast = routing.latestRoute && !live;
+  const routedNow = routing.route === 'live';
+  const routedLast = routing.route === 'last';
 
   const columnar = hasQuotaColumns(entry.type);
   const low = isRunningLow(columns);
@@ -205,8 +211,9 @@ export function QuotaCard(props: QuotaCardProps) {
         </div>
       )}
       {exclusion && (
-        <div className={styles.tooltipMuted}>
+        <div>
           {t('quota_management.routing_excluded', {
+            model: exclusion.model,
             reason: t(`quota_management.routing_excluded_reason_${exclusion.reason}`, {
               defaultValue: exclusion.reason,
             }),
@@ -332,7 +339,7 @@ export function QuotaCard(props: QuotaCardProps) {
         ) : (
           <IconCloud size={18} className={styles.cloudIcon} />
         )}
-        {live && <span className={styles.liveBadge} aria-hidden="true" />}
+        {(live || routedNow) && <span className={styles.liveBadge} aria-hidden="true" />}
       </span>
 
       <HoverCard content={identityTooltip} className={styles.identity}>
@@ -377,9 +384,11 @@ export function QuotaCard(props: QuotaCardProps) {
               : t('quota_management.routing_last', { ago: formatAgo(activity.lastAtMs, now, t) })}
           </span>
         )}
-        {historyEnabled && (
-          <ActivityStrip buckets={activity?.buckets ?? NO_ACTIVITY} inFlight={inFlight.length} />
-        )}
+        <ActivityStrip
+          buckets={historyEnabled ? (activity?.buckets ?? NO_ACTIVITY) : null}
+          partial={activity?.partial}
+          running={{ count: inFlight.length, truncated: routing.inFlightTruncated }}
+        />
       </HoverCard>
 
       {renderCells()}

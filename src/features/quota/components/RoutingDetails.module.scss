@@ -48,6 +48,11 @@
   color: var(--text-tertiary);
 }
 
+.tableScroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -158,29 +163,9 @@
   }
 }
 
-.runningDot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--viz-success);
-  animation: details-running 1.2s ease-in-out infinite alternate;
-}
-
 .runningFor {
+  white-space: nowrap;
   color: var(--quota-success-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-@keyframes details-running {
-  to {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .runningDot {
-    animation: none;
-  }
 }

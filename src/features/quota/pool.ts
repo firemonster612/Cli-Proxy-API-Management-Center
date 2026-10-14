@@ -115,18 +115,25 @@ export interface PoolPace {
 const clampUnit = (value: number) => Math.max(0, Math.min(1, value));
 
 /**
- * Accounts without a reset time are left out: without it there is no way to
- * tell how far into its week an account is.
+ * An untouched account with no reset time hasn't started its week (Claude
+ * reports no reset until the first request), so it counts as nothing elapsed
+ * and nothing used. An account with usage but no reset time is left out:
+ * there is no way to tell how far into its week it is. Null when no account
+ * has started its week.
  */
 export function poolPace(accounts: PoolAccount[], nowMs: number): PoolPace | null {
-  const timed = accounts.filter((account) => account.resetAtMs !== null);
-  const totalWeight = timed.reduce((sum, account) => sum + account.weight, 0);
+  if (accounts.every((account) => account.resetAtMs === null)) return null;
+  const counted = accounts.filter(
+    (account) => account.resetAtMs !== null || account.remaining >= 100
+  );
+  const totalWeight = counted.reduce((sum, account) => sum + account.weight, 0);
   if (totalWeight === 0) return null;
 
   let expected = 0;
   let actual = 0;
-  for (const account of timed) {
-    const elapsed = clampUnit(1 - ((account.resetAtMs as number) - nowMs) / WEEK_MS);
+  for (const account of counted) {
+    const elapsed =
+      account.resetAtMs === null ? 0 : clampUnit(1 - (account.resetAtMs - nowMs) / WEEK_MS);
     const used = clampUnit((100 - account.remaining) / 100);
     expected += (account.weight * elapsed) / totalWeight;
     actual += (account.weight * used) / totalWeight;

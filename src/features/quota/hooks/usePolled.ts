@@ -10,14 +10,36 @@ import { useEffect, useState } from 'react';
 export const isNotFound = (err: unknown): boolean =>
   (err as { status?: number } | null)?.status === 404;
 
+export interface Polled<T> {
+  data: T | null;
+  supported: boolean;
+  /** The last poll failed; `data` is what an earlier poll returned. */
+  failed: boolean;
+}
+
+const INITIAL_POLL = { data: null, supported: true, failed: false } as const;
+
+/**
+ * State after one poll. A 404 drops what earlier polls returned, so nothing
+ * from an endpoint core no longer serves stays on screen.
+ */
+export function settlePoll<T>(
+  prev: Polled<T>,
+  outcome: { data: T } | { error: unknown }
+): Polled<T> {
+  if ('data' in outcome) return { data: outcome.data, supported: true, failed: false };
+  if (isNotFound(outcome.error)) return { data: null, supported: false, failed: true };
+  return { ...prev, failed: true };
+}
+
 export function usePolled<T>(
   /** Must be stable (useCallback); a new function restarts polling. */
   load: () => Promise<T>,
   intervalMs: number,
   active: boolean
-): { data: T | null; supported: boolean } {
-  const [data, setData] = useState<T | null>(null);
-  const [supported, setSupported] = useState(true);
+): Polled<T> {
+  const [state, setState] = useState<Polled<T>>(INITIAL_POLL);
+  const { supported } = state;
 
   useEffect(() => {
     if (!active || !supported) return;
@@ -27,10 +49,10 @@ export function usePolled<T>(
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const next = await load();
-        if (!cancelled) setData(next);
-      } catch (err: unknown) {
-        if (!cancelled && isNotFound(err)) setSupported(false);
+        const data = await load();
+        if (!cancelled) setState((prev) => settlePoll(prev, { data }));
+      } catch (error: unknown) {
+        if (!cancelled) setState((prev) => settlePoll(prev, { error }));
       } finally {
         inFlight = false;
       }
@@ -45,5 +67,5 @@ export function usePolled<T>(
     };
   }, [load, intervalMs, active, supported]);
 
-  return { data, supported };
+  return state;
 }

@@ -25,20 +25,21 @@ import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
 import { formatCalendarDate } from '@/utils/time/calendar';
 import { DAY_MS } from '@/utils/time/durations';
 import type { BankedResets } from '../bankedResets';
-import type {
-  PoolAccount,
-  PoolPace,
-  PoolResetStep,
-  PoolSummary as PoolSummaryData,
-} from '../pool';
-import { isLive, type AccountActivity } from '../routing';
-import { formatAgo, formatLongDuration, formatResetInstant, formatResetsIn } from '../timeCopy';
+import type { PoolAccount, PoolPace, PoolResetStep, PoolSummary as PoolSummaryData } from '../pool';
+import { isRouteLive, type Route } from '../routing';
+import {
+  formatAgo,
+  formatLongDuration,
+  formatResetInstant,
+  formatResetsIn,
+  formatRunningFor,
+} from '../timeCopy';
 import styles from './PoolSummary.module.scss';
 
 export interface PoolCardData {
   summary: PoolSummaryData;
-  /** The account that served the provider's newest request, live or not. */
-  route: AccountActivity | undefined;
+  /** Where the provider's traffic is going now or went last. */
+  route: Route | undefined;
   /** Label for the routed account (email), resolved by the page. */
   routeLabel: string | null;
   /** Core's pick for a new request; absent when it can't say. */
@@ -242,7 +243,7 @@ function PoolCard({
   const { t, i18n } = useTranslation();
   const now = useNow();
   const { summary, route, routeLabel, preview, previewLabel, banked } = data;
-  const live = isLive(route, now);
+  const live = isRouteLive(route, now);
   const icon = getAuthFileIcon(summary.provider, resolvedTheme);
   const next = summary.resets[0];
   // Accounts on monthly windows only: there is no weekly capacity to total.
@@ -275,7 +276,12 @@ function PoolCard({
                 : t('quota_management.pool_last_routed_to')}{' '}
               <strong>{routeLabel}</strong>
               <span className={styles.muted}>
-                {route.requests[0]?.model ?? ''} · {formatAgo(route.lastAtMs, now, t)}
+                {route.model} ·{' '}
+                {route.running
+                  ? t('quota_management.routing_running', {
+                      duration: formatRunningFor(now - route.atMs),
+                    })
+                  : formatAgo(route.atMs, now, t)}
               </span>
             </span>
           ) : (

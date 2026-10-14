@@ -60,60 +60,63 @@ export function RequestTable({
   const { t, i18n } = useTranslation();
   const now = useNow();
 
+  // The table keeps its columns and scrolls sideways on narrow screens, so Client and Result stay reachable.
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>{t('quota_management.routing_col_time')}</th>
-          {showAccount && <th>{t('quota_management.routing_col_account')}</th>}
-          <th>{t('quota_management.routing_col_model')}</th>
-          <th>{t('quota_management.routing_col_client')}</th>
-          <th className={styles.num}>{t('quota_management.routing_col_tokens')}</th>
-          <th className={styles.num}>{t('quota_management.routing_col_latency')}</th>
-          <th className={styles.num}>{t('quota_management.routing_col_result')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {requests.map((request, index) => {
-          const alsoTried = retriedOn(request, lookup);
-          return (
-            <tr key={`${request.authIndex}-${request.startedAtMs}-${index}`}>
-              <td>
-                <span className={styles.clock}>
-                  {formatClock(request.startedAtMs, i18n.resolvedLanguage)}
-                </span>
-                <span className={styles.ago}>{formatAgo(request.startedAtMs, now, t)}</span>
-              </td>
-              {showAccount && (
-                <td className={styles.account}>{lookup.labelOf(request.authIndex)}</td>
-              )}
-              <td className={styles.model}>
-                {request.model}
-                {alsoTried.length > 0 && (
-                  <span className={styles.retry}>
-                    ↻{' '}
-                    {t('quota_management.routing_also_tried', {
-                      accounts: alsoTried.map(lookup.labelOf).join(', '),
-                    })}
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>{t('quota_management.routing_col_time')}</th>
+            {showAccount && <th>{t('quota_management.routing_col_account')}</th>}
+            <th>{t('quota_management.routing_col_model')}</th>
+            <th>{t('quota_management.routing_col_client')}</th>
+            <th className={styles.num}>{t('quota_management.routing_col_tokens')}</th>
+            <th className={styles.num}>{t('quota_management.routing_col_latency')}</th>
+            <th className={styles.num}>{t('quota_management.routing_col_result')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((request, index) => {
+            const alsoTried = retriedOn(request, lookup);
+            return (
+              <tr key={`${request.authIndex}-${request.startedAtMs}-${index}`}>
+                <td>
+                  <span className={styles.clock}>
+                    {formatClock(request.startedAtMs, i18n.resolvedLanguage)}
                   </span>
+                  <span className={styles.ago}>{formatAgo(request.startedAtMs, now, t)}</span>
+                </td>
+                {showAccount && (
+                  <td className={styles.account}>{lookup.labelOf(request.authIndex)}</td>
                 )}
-              </td>
-              <ClientCell request={request} />
-              <td className={styles.num}>
-                {formatTokens(request.inputTokens)} → {formatTokens(request.outputTokens)}
-              </td>
-              <td className={styles.num}>
-                {request.latencyMs === null ? '–' : `${(request.latencyMs / 1000).toFixed(1)}s`}
-              </td>
-              <td className={`${styles.num} ${request.failed ? styles.failed : styles.ok}`}>
-                {request.failed
-                  ? (request.statusCode ?? t('quota_management.routing_failed'))
-                  : t('quota_management.routing_ok')}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+                <td className={styles.model}>
+                  {request.model}
+                  {alsoTried.length > 0 && (
+                    <span className={styles.retry}>
+                      ↻{' '}
+                      {t('quota_management.routing_also_tried', {
+                        accounts: alsoTried.map(lookup.labelOf).join(', '),
+                      })}
+                    </span>
+                  )}
+                </td>
+                <ClientCell request={request} />
+                <td className={styles.num}>
+                  {formatTokens(request.inputTokens)} → {formatTokens(request.outputTokens)}
+                </td>
+                <td className={styles.num}>
+                  {request.latencyMs === null ? '–' : `${(request.latencyMs / 1000).toFixed(1)}s`}
+                </td>
+                <td className={`${styles.num} ${request.failed ? styles.failed : styles.ok}`}>
+                  {request.failed
+                    ? (request.statusCode ?? t('quota_management.routing_failed'))
+                    : t('quota_management.routing_ok')}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

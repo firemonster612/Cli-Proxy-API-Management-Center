@@ -11,12 +11,14 @@ import {
   resolveClaudeOrganizationName,
   resolveClaudePlanType,
 } from '@/features/quota/providers/claude/data';
+import { settlePoll } from '@/features/quota/hooks/usePolled';
 import {
-  accountsByRequestId,
   activityBuckets,
   groupActivityByAccount,
   isLive,
+  isRouteLive,
   latestRoutes,
+  requestsByRequestId,
   retriedOn,
 } from '@/features/quota/routing';
 import {
@@ -24,7 +26,7 @@ import {
   formatResetInstant,
   formatResetInstantShort,
 } from '@/features/quota/timeCopy';
-import type { RecentRequest } from '@/services/api';
+import type { InFlightAttempt, RecentRequest } from '@/services/api';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 
 const HOUR = 3_600_000;
@@ -148,7 +150,7 @@ describe('buildPoolSummary', () => {
     expect(pool?.monthlyCount).toBe(1);
   });
 
-  test('carries each resetting account\'s organization for the next-reset line', () => {
+  test("carries each resetting account's organization for the next-reset line", () => {
     const pool = buildPoolSummary('claude', inputs, NOW);
     expect(pool?.resets[0].accounts[0].organizationName).toBe('Northwind Labs');
   });
@@ -194,7 +196,15 @@ describe('poolPace', () => {
     expect(pace?.runsOutAtMs).toBe(NOW + 28 * HOUR);
   });
 
-  test('leaves out accounts with no reset time, and is null when none have one', () => {
+  test('counts an untouched account with no reset time as a week not yet started', () => {
+    // A 20x at 100% left with no reset beside a 1x at 60% used, halfway through: 0.6/21 vs 0.5/21.
+    const pace = poolPace([account(20, 100, null), account(1, 40, halfWeek)], NOW);
+    expect(pace?.expected).toBeCloseTo(0.5 / 21);
+    expect(pace?.actual).toBeCloseTo(0.6 / 21);
+    expect(pace?.status).toBe('on');
+  });
+
+  test('leaves out used accounts with no reset time, and is null when no week has started', () => {
     expect(poolPace([account(1, 100, null)], NOW)).toBeNull();
     expect(poolPace([account(1, 45, halfWeek), account(20, 0, null)], NOW)?.status).toBe('on');
   });
@@ -271,7 +281,7 @@ describe('routing activity', () => {
       { model: 'opus', count: 2 },
       { model: 'sonnet', count: 1 },
     ]);
-    const routes = latestRoutes(activity, () => 'claude');
+    const routes = latestRoutes(activity, [], () => 'claude');
     expect(routes.get('claude')?.authIndex).toBe('1');
   });
 
@@ -280,15 +290,39 @@ describe('routing activity', () => {
       [request('1', 40 * MINUTE, 'opus'), request('2', 23 * MINUTE, 'opus')],
       NOW
     );
-    const route = latestRoutes(activity, () => 'claude').get('claude');
+    const route = latestRoutes(activity, [], () => 'claude').get('claude');
     expect(route?.authIndex).toBe('2');
-    expect(isLive(route, NOW)).toBe(false);
+    expect(isRouteLive(route, NOW)).toBe(false);
+  });
+
+  test('an attempt running since after the newest completion is the live route', () => {
+    const activity = groupActivityByAccount([request('1', 10 * MINUTE, 'opus')], NOW);
+    const running = (authIndex: string, agoMs: number): InFlightAttempt => ({
+      attemptId: authIndex,
+      requestId: null,
+      provider: 'claude',
+      authIndex,
+      model: 'sonnet',
+      kind: 'stream',
+      startedAtMs: NOW - agoMs,
+    });
+    const route = latestRoutes(activity, [running('2', 4 * MINUTE)], () => 'claude').get('claude');
+    expect(route).toMatchObject({ authIndex: '2', model: 'sonnet', running: true });
+    expect(isRouteLive(route, NOW)).toBe(true);
+    // Started before the newest completion: the completed request stays the route.
+    const older = latestRoutes(activity, [running('2', 20 * MINUTE)], () => 'claude').get('claude');
+    expect(older?.authIndex).toBe('1');
   });
 
   test('buckets the last hour into twelve five-minute slices, oldest first, failures counted', () => {
     const failed = { ...request('1', 2 * MINUTE, 'opus'), failed: true };
     const buckets = activityBuckets(
-      [request('1', 1 * MINUTE, 'opus'), failed, request('1', 7 * MINUTE, 'opus'), request('1', 61 * MINUTE, 'opus')],
+      [
+        request('1', 1 * MINUTE, 'opus'),
+        failed,
+        request('1', 7 * MINUTE, 'opus'),
+        request('1', 61 * MINUTE, 'opus'),
+      ],
       NOW
     );
     expect(buckets).toHaveLength(12);
@@ -298,11 +332,21 @@ describe('routing activity', () => {
   });
 
   test('finds the other accounts a retried request went to', () => {
-    const first = { ...request('2', 3 * MINUTE, 'opus'), requestId: 'ab12cd34', failed: true };
-    const retry = { ...request('1', 2 * MINUTE, 'opus'), requestId: 'ab12cd34' };
+    // The first attempt fails after 20s; the retry starts half a second later.
+    const first = {
+      ...request('2', 3 * MINUTE, 'opus'),
+      completedAtMs: NOW - 3 * MINUTE + 20_000,
+      requestId: 'ab12cd34',
+      failed: true,
+    };
+    const retry = {
+      ...request('1', 3 * MINUTE - 20_500, 'opus'),
+      completedAtMs: NOW - MINUTE,
+      requestId: 'ab12cd34',
+    };
     const alone = { ...request('1', MINUTE, 'opus'), requestId: 'ffff0000' };
     const lookup = {
-      accountsByRequest: accountsByRequestId([first, retry, alone]),
+      requestsById: requestsByRequestId([first, retry, alone]),
       labelOf: (authIndex: string) => authIndex,
     };
     expect(retriedOn(retry, lookup)).toEqual(['2']);
@@ -311,11 +355,70 @@ describe('routing activity', () => {
     expect(retriedOn(request('1', MINUTE, 'opus'), lookup)).toEqual([]);
   });
 
+  test('turns of one WebSocket session that share an id but not a time are not retries', () => {
+    const turn1 = { ...request('2', 5 * MINUTE, 'opus'), requestId: 'ws000001' };
+    const turn2 = { ...request('1', 2 * MINUTE, 'opus'), requestId: 'ws000001' };
+    const lookup = {
+      requestsById: requestsByRequestId([turn1, turn2]),
+      labelOf: (authIndex: string) => authIndex,
+    };
+    expect(retriedOn(turn2, lookup)).toEqual([]);
+  });
+
+  test('counts are lower bounds when a capped history starts inside the hour', () => {
+    // 200 requests for one account across the last 40 minutes: the per-account cap.
+    const capped = Array.from({ length: 200 }, (_, i) => request('1', i * 12_000, 'opus'));
+    const spread = [...capped.slice(1), request('1', 61 * MINUTE, 'opus')];
+    expect(groupActivityByAccount(capped, NOW).get('1')?.partial).toBe(true);
+    // Same count, but the oldest record is older than the hour: the hour is complete.
+    expect(groupActivityByAccount(spread, NOW).get('1')?.partial).toBe(false);
+    // Under the cap: complete however recent.
+    expect(groupActivityByAccount(capped.slice(1), NOW).get('1')?.partial).toBe(false);
+  });
+
+  test('a global cap inside the hour makes every account partial', () => {
+    const full = Array.from({ length: 2000 }, (_, i) => request(String(i % 20), i * 1_000, 'opus'));
+    const activity = groupActivityByAccount(full, NOW);
+    expect(activity.get('7')?.recentCount).toBe(100);
+    expect(activity.get('7')?.partial).toBe(true);
+  });
+
+  test("tables list an account's requests by start time", () => {
+    const longRun = { ...request('1', 10 * MINUTE, 'opus'), completedAtMs: NOW - 10_000 };
+    const quick = request('1', 2 * MINUTE, 'sonnet');
+    const activity = groupActivityByAccount([longRun, quick], NOW).get('1');
+    expect(activity?.requests.map((entry) => entry.model)).toEqual(['sonnet', 'opus']);
+    expect(activity?.lastModel).toBe('opus');
+  });
+
   test('a long request is live when it completes, not when it started', () => {
     const longRun = { ...request('1', 10 * 60_000, 'opus'), completedAtMs: NOW - 30_000 };
     const activity = groupActivityByAccount([longRun], NOW);
     expect(activity.get('1')?.lastAtMs).toBe(NOW - 30_000);
     expect(isLive(activity.get('1'), NOW)).toBe(true);
+  });
+});
+
+describe('settlePoll', () => {
+  test('a 404 after a successful poll drops the earlier data and stops polling', () => {
+    const initial = { data: null, supported: true, failed: false };
+    const loaded = settlePoll(initial, { data: ['preview'] });
+    expect(loaded).toEqual({ data: ['preview'], supported: true, failed: false });
+    expect(settlePoll(loaded, { error: { status: 404 } })).toEqual({
+      data: null,
+      supported: false,
+      failed: true,
+    });
+  });
+
+  test('another failure keeps the data but marks it failed', () => {
+    const loaded = settlePoll({ data: null, supported: true, failed: false }, { data: 1 });
+    expect(settlePoll(loaded, { error: { status: 500 } })).toEqual({
+      data: 1,
+      supported: true,
+      failed: true,
+    });
+    expect(settlePoll(loaded, { error: new Error('network') }).failed).toBe(true);
   });
 });
 

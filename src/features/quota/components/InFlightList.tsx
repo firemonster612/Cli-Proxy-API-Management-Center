@@ -6,6 +6,7 @@
 import { useTranslation } from 'react-i18next';
 import type { InFlightAttempt } from '@/services/api';
 import { formatRunningFor } from '../timeCopy';
+import { RunningDot } from './RunningDot';
 import styles from './RoutingDetails.module.scss';
 
 export function InFlightList({
@@ -25,7 +26,7 @@ export function InFlightList({
     <ul className={styles.inFlight}>
       {longestFirst.map((attempt) => (
         <li key={attempt.attemptId}>
-          <span className={styles.runningDot} aria-hidden="true" />
+          <RunningDot />
           <span className={styles.runningFor}>
             {t('quota_management.routing_running', {
               duration: formatRunningFor(observedAtMs - attempt.startedAtMs),

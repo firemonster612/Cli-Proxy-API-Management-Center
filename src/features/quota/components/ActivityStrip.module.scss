@@ -44,23 +44,3 @@
   font-variant-numeric: tabular-nums;
   color: var(--quota-success-text);
 }
-
-.runningDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--viz-success);
-  animation: strip-running 1.2s ease-in-out infinite alternate;
-}
-
-@keyframes strip-running {
-  to {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .runningDot {
-    animation: none;
-  }
-}

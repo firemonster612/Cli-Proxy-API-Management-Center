@@ -25,7 +25,7 @@ import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { ActivityOverview } from './components/ActivityOverview';
-import { QuotaCard } from './components/QuotaCard';
+import { QuotaCard, type RowExclusion, type RowRouting } from './components/QuotaCard';
 import { QuotaColumnsHeader } from './components/QuotaColumnsHeader';
 import { PoolSummary, type PoolCardData } from './components/PoolSummary';
 import {
@@ -55,9 +55,10 @@ import { useRoutingPreviews } from './hooks/useRoutingPreviews';
 import { bankedResetsFor, type BankedResets } from './bankedResets';
 import { buildPoolSummary } from './pool';
 import {
-  accountsByRequestId,
   groupActivityByAccount,
+  isRouteLive,
   latestRoutes,
+  requestsByRequestId,
   type RequestLookup,
 } from './routing';
 import { useNow } from '@/hooks/useNow';
@@ -223,7 +224,7 @@ export function QuotaPage() {
   );
   const lookup = useMemo<RequestLookup>(
     () => ({
-      accountsByRequest: accountsByRequestId(requests),
+      requestsById: requestsByRequestId(requests),
       labelOf: (authIndex) => {
         const entry = entryByAuth.get(authIndex);
         return entry ? accountLabel(entry.file) : authIndex;
@@ -232,7 +233,10 @@ export function QuotaPage() {
     [requests, entryByAuth]
   );
   const activityByAuth = useMemo(() => groupActivityByAccount(requests, now), [requests, now]);
-  const routes = useMemo(() => latestRoutes(activityByAuth, providerOf), [activityByAuth, providerOf]);
+  const routes = useMemo(
+    () => latestRoutes(activityByAuth, inFlight?.attempts ?? NO_ATTEMPTS, providerOf),
+    [activityByAuth, inFlight, providerOf]
+  );
   const inFlightByAuth = useMemo(() => {
     const byAuth = new Map<string, InFlightAttempt[]>();
     inFlight?.attempts.forEach((attempt) =>
@@ -242,13 +246,20 @@ export function QuotaPage() {
   }, [inFlight]);
   const exclusionByAuth = useMemo(
     () =>
-      new Map(
+      new Map<string, RowExclusion>(
         [...previews.values()].flatMap((preview) =>
-          preview.excluded.map((exclusion) => [exclusion.authIndex, exclusion] as const)
+          preview.excluded.map(
+            (exclusion) => [exclusion.authIndex, { ...exclusion, model: preview.model }] as const
+          )
         )
       ),
     [previews]
   );
+  const routeOf = (provider: string, authIndex: string): RowRouting['route'] => {
+    const route = routes.get(provider);
+    if (route?.authIndex !== authIndex) return null;
+    return isRouteLive(route, now) ? 'live' : 'last';
+  };
   const [openDetails, setOpenDetails] = useState<Set<string>>(() => new Set());
   const toggleDetails = useCallback((key: string) => {
     setOpenDetails((prev) => {
@@ -420,6 +431,7 @@ export function QuotaPage() {
       {!loading && (
         <ActivityOverview
           requests={requests}
+          activityByAuth={activityByAuth}
           inFlight={inFlight}
           lookup={lookup}
           providerOf={providerOf}
@@ -487,8 +499,9 @@ export function QuotaPage() {
                   routing={{
                     activity: activityByAuth.get(authIndex),
                     inFlight: inFlightByAuth.get(authIndex) ?? NO_ATTEMPTS,
+                    inFlightTruncated: inFlight?.truncated ?? false,
                     observedAtMs: inFlight?.observedAtMs ?? now,
-                    latestRoute: routes.get(entry.type)?.authIndex === authIndex,
+                    route: routeOf(entry.type, authIndex),
                     nextPick: previews.get(entry.type)?.chosenAuthIndex === authIndex,
                     exclusion: exclusionByAuth.get(authIndex),
                   }}

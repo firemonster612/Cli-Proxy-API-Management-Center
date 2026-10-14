@@ -31,6 +31,11 @@ export interface RecentRequest {
   clientIp: string | null;
 }
 
+/** Core keeps at most this many recent requests overall (usagehistory.MaxTotal) and serves up to all of them. */
+export const RECENT_REQUESTS_MAX = 2000;
+/** Core keeps at most this many recent requests per account (usagehistory.MaxPerAuth). */
+export const RECENT_REQUESTS_MAX_PER_ACCOUNT = 200;
+
 export interface RecentRequests {
   /** Mirrors `usage-statistics-enabled`: when false, core records no history. */
   enabled: boolean;
@@ -167,7 +172,7 @@ const normalizeInFlightAttempt = (raw: RawInFlightAttempt): InFlightAttempt | nu
 };
 
 export const quotaInsightsApi = {
-  recentRequests: async (limit = 500): Promise<RecentRequests> => {
+  recentRequests: async (limit = RECENT_REQUESTS_MAX): Promise<RecentRequests> => {
     const data = await apiClient.get<{ enabled?: boolean; requests?: RawRecentRequest[] }>(
       '/recent-requests',
       { params: { limit } }
