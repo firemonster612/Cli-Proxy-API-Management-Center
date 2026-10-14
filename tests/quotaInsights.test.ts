@@ -281,7 +281,7 @@ describe('routing activity', () => {
       { model: 'opus', count: 2 },
       { model: 'sonnet', count: 1 },
     ]);
-    const routes = latestRoutes(activity, [], () => 'claude');
+    const routes = latestRoutes(activity, null, () => 'claude');
     expect(routes.get('claude')?.authIndex).toBe('1');
   });
 
@@ -290,7 +290,7 @@ describe('routing activity', () => {
       [request('1', 40 * MINUTE, 'opus'), request('2', 23 * MINUTE, 'opus')],
       NOW
     );
-    const route = latestRoutes(activity, [], () => 'claude').get('claude');
+    const route = latestRoutes(activity, null, () => 'claude').get('claude');
     expect(route?.authIndex).toBe('2');
     expect(isRouteLive(route, NOW)).toBe(false);
   });
@@ -306,11 +306,22 @@ describe('routing activity', () => {
       kind: 'stream',
       startedAtMs: NOW - agoMs,
     });
-    const route = latestRoutes(activity, [running('2', 4 * MINUTE)], () => 'claude').get('claude');
-    expect(route).toMatchObject({ authIndex: '2', model: 'sonnet', running: true });
+    const snapshot = (attempt: InFlightAttempt) => ({ attempts: [attempt], observedAtMs: NOW });
+    const route = latestRoutes(activity, snapshot(running('2', 4 * MINUTE)), () => 'claude').get(
+      'claude'
+    );
+    // A running route keeps the snapshot clock, so its age isn't measured against a stale page clock.
+    expect(route).toMatchObject({
+      authIndex: '2',
+      model: 'sonnet',
+      running: true,
+      observedAtMs: NOW,
+    });
     expect(isRouteLive(route, NOW)).toBe(true);
     // Started before the newest completion: the completed request stays the route.
-    const older = latestRoutes(activity, [running('2', 20 * MINUTE)], () => 'claude').get('claude');
+    const older = latestRoutes(activity, snapshot(running('2', 20 * MINUTE)), () => 'claude').get(
+      'claude'
+    );
     expect(older?.authIndex).toBe('1');
   });
 

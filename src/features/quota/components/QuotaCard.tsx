@@ -77,6 +77,8 @@ export interface RowRouting {
   inFlightTruncated: boolean;
   /** Server clock of the in-flight snapshot. */
   observedAtMs: number;
+  /** Core's history cap cut the hour short, so counts here are lower bounds even with no entry. */
+  historyPartial: boolean;
   /** The provider's traffic is going here now, or went here last. */
   route: 'live' | 'last' | null;
   /** Core would send a new request here. */
@@ -386,7 +388,7 @@ export function QuotaCard(props: QuotaCardProps) {
         )}
         <ActivityStrip
           buckets={historyEnabled ? (activity?.buckets ?? NO_ACTIVITY) : null}
-          partial={activity?.partial}
+          partial={activity?.partial ?? routing.historyPartial}
           running={{ count: inFlight.length, truncated: routing.inFlightTruncated }}
         />
       </HoverCard>
@@ -478,6 +480,7 @@ export function QuotaCard(props: QuotaCardProps) {
             observedAtMs={routing.observedAtMs}
             lookup={lookup}
             historyEnabled={historyEnabled}
+            historyPartial={routing.historyPartial}
           />
         </div>
       )}

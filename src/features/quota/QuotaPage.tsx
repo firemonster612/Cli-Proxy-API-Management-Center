@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { authFilesApi, type InFlightAttempt } from '@/services/api';
+import { RECENT_REQUESTS_MAX, authFilesApi, type InFlightAttempt } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -55,6 +55,7 @@ import { useRoutingPreviews } from './hooks/useRoutingPreviews';
 import { bankedResetsFor, type BankedResets } from './bankedResets';
 import { buildPoolSummary } from './pool';
 import {
+  cutShort,
   groupActivityByAccount,
   isRouteLive,
   latestRoutes,
@@ -233,8 +234,13 @@ export function QuotaPage() {
     [requests, entryByAuth]
   );
   const activityByAuth = useMemo(() => groupActivityByAccount(requests, now), [requests, now]);
+  // Core's cap cut the hour short, so an account with nothing retained may still have had traffic.
+  const historyPartial = useMemo(
+    () => cutShort(requests, RECENT_REQUESTS_MAX, now),
+    [requests, now]
+  );
   const routes = useMemo(
-    () => latestRoutes(activityByAuth, inFlight?.attempts ?? NO_ATTEMPTS, providerOf),
+    () => latestRoutes(activityByAuth, inFlight, providerOf),
     [activityByAuth, inFlight, providerOf]
   );
   const inFlightByAuth = useMemo(() => {
@@ -501,6 +507,7 @@ export function QuotaPage() {
                     inFlight: inFlightByAuth.get(authIndex) ?? NO_ATTEMPTS,
                     inFlightTruncated: inFlight?.truncated ?? false,
                     observedAtMs: inFlight?.observedAtMs ?? now,
+                    historyPartial,
                     route: routeOf(entry.type, authIndex),
                     nextPick: previews.get(entry.type)?.chosenAuthIndex === authIndex,
                     exclusion: exclusionByAuth.get(authIndex),

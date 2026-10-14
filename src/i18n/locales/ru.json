@@ -1333,7 +1333,8 @@
     "activity_in_flight_few": "{{amount}} в работе",
     "activity_in_flight_many": "{{amount}} в работе",
     "activity_in_flight_other": "{{amount}} в работе",
-    "activity_none": "В недавней истории прокси нет запросов."
+    "activity_none": "В недавней истории прокси нет запросов.",
+    "routing_no_requests_partial": "В сохранённой истории нет запросов через этот аккаунт. Лимит истории не покрывает весь час, так что трафик всё же мог быть."
   },
   "plugin_management": {
     "title": "Управление плагинами",

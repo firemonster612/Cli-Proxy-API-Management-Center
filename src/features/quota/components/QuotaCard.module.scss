@@ -506,7 +506,9 @@
   left: 8px;
   /* Replaced elements ignore `right` and fall back to the viewBox width, so size
    * explicitly: run up to the actions (the stamp sits on its own line below). */
-  width: calc(100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap));
+  width: calc(
+    100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap)
+  );
   /* Centered on the first grid row, so an expanded details panel stays clear. */
   top: var(--quota-row-center);
   height: 34px;

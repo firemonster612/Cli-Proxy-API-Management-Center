@@ -279,7 +279,7 @@ function PoolCard({
                 {route.model} ·{' '}
                 {route.running
                   ? t('quota_management.routing_running', {
-                      duration: formatRunningFor(now - route.atMs),
+                      duration: formatRunningFor((route.observedAtMs ?? now) - route.atMs),
                     })
                   : formatAgo(route.atMs, now, t)}
               </span>

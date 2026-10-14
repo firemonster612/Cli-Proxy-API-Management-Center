@@ -1324,7 +1324,8 @@
     "activity_title": "All activity",
     "activity_in_flight_one": "{{amount}} in flight",
     "activity_in_flight_other": "{{amount}} in flight",
-    "activity_none": "No requests in the proxy's recent history."
+    "activity_none": "No requests in the proxy's recent history.",
+    "routing_no_requests_partial": "No requests from this account in the retained history. Core's history cap doesn't reach back the full hour, so it may still have had traffic."
   },
   "plugin_management": {
     "title": "Plugin Management",

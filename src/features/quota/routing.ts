@@ -60,6 +60,8 @@ export interface Route {
   atMs: number;
   /** The route comes from an attempt still running. */
   running: boolean;
+  /** Server clock of the in-flight snapshot a running route came from; its age is measured against this. */
+  observedAtMs: number | null;
 }
 
 /** What a request table needs to name accounts and spot retries. */
@@ -188,7 +190,7 @@ export function groupActivityByAccount(
  */
 export function latestRoutes(
   activity: Map<string, AccountActivity>,
-  attempts: InFlightAttempt[],
+  inFlight: { attempts: InFlightAttempt[]; observedAtMs: number } | null,
   providerOf: (authIndex: string) => string | undefined
 ): Map<string, Route> {
   const routes = new Map<string, Route>();
@@ -204,14 +206,16 @@ export function latestRoutes(
       model: entry.lastModel,
       atMs: entry.lastAtMs,
       running: false,
+      observedAtMs: null,
     })
   );
-  attempts.forEach((attempt) =>
+  inFlight?.attempts.forEach((attempt) =>
     offer({
       authIndex: attempt.authIndex,
       model: attempt.model,
       atMs: attempt.startedAtMs,
       running: true,
+      observedAtMs: inFlight.observedAtMs,
     })
   );
   return routes;

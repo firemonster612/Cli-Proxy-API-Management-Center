@@ -20,6 +20,7 @@ export function RoutingDetails({
   observedAtMs,
   lookup,
   historyEnabled,
+  historyPartial,
 }: {
   activity: AccountActivity | undefined;
   inFlight: InFlightAttempt[];
@@ -27,6 +28,8 @@ export function RoutingDetails({
   lookup: RequestLookup;
   /** False when core's usage statistics are off, so no routing data exists. */
   historyEnabled: boolean;
+  /** Core's history cap cut the hour short, so "no requests" can't be claimed. */
+  historyPartial: boolean;
 }) {
   const { t } = useTranslation();
   const running = <InFlightList attempts={inFlight} observedAtMs={observedAtMs} />;
@@ -35,9 +38,11 @@ export function RoutingDetails({
     return (
       <div className={styles.details}>
         {running}
-        {historyEnabled
-          ? t('quota_management.routing_no_requests')
-          : t('quota_management.routing_history_disabled')}
+        {!historyEnabled
+          ? t('quota_management.routing_history_disabled')
+          : historyPartial
+            ? t('quota_management.routing_no_requests_partial')
+            : t('quota_management.routing_no_requests')}
       </div>
     );
   }

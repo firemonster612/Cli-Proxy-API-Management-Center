@@ -1313,7 +1313,8 @@
     "routing_client_ip": "IP",
     "activity_title": "全部活动",
     "activity_in_flight_other": "{{amount}} 个进行中",
-    "activity_none": "代理的近期记录里没有请求。"
+    "activity_none": "代理的近期记录里没有请求。",
+    "routing_no_requests_partial": "保留的历史记录中没有此账号的请求。核心的记录上限不足以覆盖完整一小时，因此它仍可能有过流量。"
   },
   "plugin_management": {
     "title": "插件管理",

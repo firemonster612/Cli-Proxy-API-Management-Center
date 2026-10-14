@@ -1339,7 +1339,8 @@
     "routing_client_ip": "IP",
     "activity_title": "全部活動",
     "activity_in_flight_other": "{{amount}} 個進行中",
-    "activity_none": "代理的近期紀錄裡沒有請求。"
+    "activity_none": "代理的近期紀錄裡沒有請求。",
+    "routing_no_requests_partial": "保留的歷史紀錄中沒有此帳號的請求。核心的紀錄上限不足以涵蓋完整一小時，因此它仍可能有過流量。"
   },
   "plugin_management": {
     "title": "插件管理",
