@@ -48,6 +48,11 @@
   color: var(--text-tertiary);
 }
 
+.tableScroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -101,4 +106,66 @@
 .more {
   font-size: 11.5px;
   color: var(--text-tertiary);
+}
+
+.muted {
+  color: var(--quota-muted);
+}
+
+.account {
+  color: var(--text-primary);
+  @include text-ellipsis;
+  max-width: 220px;
+}
+
+/* Model on top, the retry note underneath, so the column stays narrow. */
+.retry {
+  display: block;
+  font-family: $font-family;
+  font-size: 11px;
+  color: var(--quota-caution-text);
+  @include text-ellipsis;
+}
+
+.client {
+  color: var(--text-primary);
+}
+
+.fingerprint {
+  margin-left: 6px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--quota-muted);
+}
+
+.unknownClient {
+  color: var(--quota-caution-text);
+  font-weight: 600;
+}
+
+.inFlight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .model {
+    max-width: 260px;
+  }
+}
+
+.runningFor {
+  white-space: nowrap;
+  color: var(--quota-success-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }

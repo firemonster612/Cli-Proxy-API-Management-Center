@@ -3,12 +3,13 @@
  * React-free —— 由 tests/quotaPageLogic.test.ts 直接消费。
  */
 
-import type { AuthFileItem } from '@/types';
+import type { AuthFileItem, ClaudeQuotaState, CodexQuotaState } from '@/types';
 import { ANTIGRAVITY_CONFIG } from './providers/antigravity/data';
 import { CLAUDE_CONFIG } from './providers/claude/data';
 import { CODEX_CONFIG } from './providers/codex/data';
 import { KIMI_CONFIG } from './providers/kimi/data';
 import { XAI_CONFIG } from './providers/xai/data';
+import type { QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
 import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
 
@@ -24,6 +25,19 @@ export interface QuotaFileEntry {
   file: AuthFileItem;
   type: QuotaProviderType;
 }
+
+/** The email is the identity; the filename stands in when there is none. */
+export const accountLabel = (file: AuthFileItem): string =>
+  file.email && file.email.trim() !== '' ? file.email : file.name.replace(/\.json$/, '');
+
+/** Team/Enterprise organization behind a Claude or Codex account; null for personal ones. */
+export const quotaOrganizationName = (
+  type: QuotaProviderType,
+  quota: QuotaCardState | undefined
+): string | null =>
+  quota?.status === 'success' && (type === 'claude' || type === 'codex')
+    ? ((quota as ClaudeQuotaState | CodexQuotaState).organizationName ?? null)
+    : null;
 
 export const resolveQuotaProviderType = (file: AuthFileItem): QuotaProviderType | null =>
   QUOTA_TAB_ORDER.find((type) => QUOTA_FILTER_MAP[type](file)) ?? null;

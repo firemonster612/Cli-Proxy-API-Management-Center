@@ -43,8 +43,9 @@ export function ClaudeQuotaBody({ quota, classes }: QuotaBodyProps<ClaudeQuotaSt
             clampedUsed === null ? null : Math.max(0, Math.min(100, 100 - clampedUsed));
           const percentLabel = remaining === null ? '--' : `${Math.round(remaining)}%`;
           const windowLabel = window.labelKey ? t(window.labelKey) : window.label;
+          // The label was baked at fetch time; rebuild from the instant when there is one.
           const resetDisplay = buildResetDisplay(
-            window.resetLabel,
+            window.resetAtMs == null ? window.resetLabel : null,
             window.resetAtMs,
             now,
             i18n.resolvedLanguage

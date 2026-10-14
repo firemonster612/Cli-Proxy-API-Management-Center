@@ -34,7 +34,7 @@ import { downloadBlob } from '@/utils/download';
 import { MANAGEMENT_API_PREFIX } from '@/utils/constants';
 import { formatUnixTimestamp } from '@/utils/format';
 import { HTTP_METHODS, STATUS_GROUPS, resolveStatusGroup, type LogState } from './hooks/logTypes';
-import { parseLogLine } from './hooks/logParsing';
+import { formatLogTimestamp, parseLogLine } from './hooks/logParsing';
 import { useLogFilters } from './hooks/useLogFilters';
 import { isNearBottom, useLogScroller } from './hooks/useLogScroller';
 import styles from './LogsPage.module.scss';
@@ -982,7 +982,9 @@ export function LogsPage() {
                             defaultValue: 'Double-click to copy',
                           })}
                         >
-                          <div className={styles.timestamp}>{line.timestamp || ''}</div>
+                          <div className={styles.timestamp}>
+                            {line.timestamp ? formatLogTimestamp(line.timestamp) : ''}
+                          </div>
                           <div className={styles.rowMain}>
                             {line.level && (
                               <span

@@ -13,6 +13,7 @@ import iconVertex from '@/assets/icons/vertex.svg';
 import type { AuthFileItem, ResolvedTheme, ThemeColors } from '@/types';
 import { normalizeOAuthProviderKey } from '@/utils/providerKeys';
 import { parseTimestamp } from '@/utils/timestamp';
+import { formatNumericDateTime } from '@/utils/time/calendar';
 import { TYPE_COLORS } from '@/utils/quota';
 
 export type { ResolvedTheme, ThemeColors, TypeColorSet } from '@/types';
@@ -242,7 +243,7 @@ export const formatModified = (item: AuthFileItem): string => {
     Number.isFinite(asNumber) && !Number.isNaN(asNumber)
       ? new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber)
       : (parseTimestamp(raw) ?? new Date(String(raw)));
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? '-' : formatNumericDateTime(date.getTime());
 };
 
 // 检查模型是否被 OAuth 排除

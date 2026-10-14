@@ -2,11 +2,16 @@
  * Pool overview above the board, one card per provider:
  *
  *   Claude · 3 accounts                    ● Routing to alex.chen@example.com
+ *                                     Next pick: alex@northwind.dev (closest to reset)
  *   62% of weekly pool left · 5-hour 48%
  *   [account segments, width = plan weight, fill = weekly left]
- *   Next reset Wed, Oct 15, 4:12 AM · in 1 day, 7 hours · +17% of pool
+ *   Next reset Wed, 15 Oct, 4:12 AM · in 1 day, 7 hours · +17% of pool
  *   [7-day step forecast from now: the pool if nothing else is used]
+ *   On pace
  *   3 banked resets · next expires in 19 hours
+ *
+ * With nothing live, the routing line names the last account routed to
+ * instead. "Next pick" is core's routing preview for a new request.
  */
 
 import { useId } from 'react';
@@ -14,24 +19,65 @@ import { useTranslation } from 'react-i18next';
 import { HoverCard } from '@/components/ui/HoverCard';
 import { IconTicket } from '@/components/ui/icons';
 import { useNow } from '@/hooks/useNow';
+import type { RoutingPreview } from '@/services/api';
 import type { ResolvedTheme } from '@/types';
 import { getAuthFileIcon, getTypeLabel } from '@/features/authFiles/constants';
+import { formatCalendarDate } from '@/utils/time/calendar';
 import { DAY_MS } from '@/utils/time/durations';
 import type { BankedResets } from '../bankedResets';
-import type { PoolSummary as PoolSummaryData } from '../pool';
-import type { AccountActivity } from '../routing';
-import { formatAgo, formatLongDuration, formatResetInstant, formatResetsIn } from '../timeCopy';
+import type { PoolAccount, PoolPace, PoolResetStep, PoolSummary as PoolSummaryData } from '../pool';
+import { isRouteLive, type Route } from '../routing';
+import {
+  formatAgo,
+  formatLongDuration,
+  formatResetInstant,
+  formatResetsIn,
+  formatRunningFor,
+} from '../timeCopy';
 import styles from './PoolSummary.module.scss';
 
 export interface PoolCardData {
   summary: PoolSummaryData;
-  route: AccountActivity | undefined;
+  /** Where the provider's traffic is going now or went last. */
+  route: Route | undefined;
   /** Label for the routed account (email), resolved by the page. */
   routeLabel: string | null;
+  /** Core's pick for a new request; absent when it can't say. */
+  preview: RoutingPreview | undefined;
+  /** Label for the previewed account, resolved by the page. */
+  previewLabel: string | null;
   banked: BankedResets[];
 }
 
 const pct = (value: number) => `${Math.round(value)}%`;
+const PREVIEW_REASONS = new Set([
+  'pinned',
+  'closest-to-reset',
+  'probe',
+  'round-robin-fallback',
+  'only-available',
+]);
+
+/** "alex@northwind.dev · Northwind Labs" for Team/Enterprise accounts, the email alone otherwise. */
+const accountWithOrg = (account: PoolAccount) =>
+  account.organizationName ? `${account.label} · ${account.organizationName}` : account.label;
+
+function StepTooltip({ step }: { step: PoolResetStep }) {
+  const { t } = useTranslation();
+  return (
+    <div className={styles.tooltip}>
+      <strong>{formatResetInstant(step.atMs)}</strong>
+      <div className={styles.restore}>
+        {t('quota_management.pool_restores', { percent: pct(step.restoresPercent) })}
+      </div>
+      {step.accounts.map((account) => (
+        <div key={account.key} className={styles.muted}>
+          {accountWithOrg(account)}
+        </div>
+      ))}
+    </div>
+  );
+}
 const FORECAST_HORIZON_MS = 7 * DAY_MS;
 const GRID_PERCENTS = [100, 50, 0];
 
@@ -64,13 +110,12 @@ function Forecast({
   const firstMidnight = new Date(now);
   firstMidnight.setHours(24, 0, 0, 0);
   for (let ms = firstMidnight.getTime(); ms < end; ms += DAY_MS) dayTicks.push(ms);
-  const dayLabel = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
   // "now" in the reader's language without another translation key.
   const nowLabel = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'second');
 
   return (
-    <div className={styles.forecast} aria-hidden="true">
-      <div className={styles.axis}>
+    <div className={styles.forecast}>
+      <div className={styles.axis} aria-hidden="true">
         {GRID_PERCENTS.map((percent) => (
           <span key={percent} style={{ top: `${y(percent)}%` }}>
             {percent}%
@@ -78,7 +123,12 @@ function Forecast({
         ))}
       </div>
       <div className={styles.plot}>
-        <svg className={styles.forecastSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
+        <svg
+          className={styles.forecastSvg}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" className={styles.gradientTop} />
@@ -99,24 +149,84 @@ function Forecast({
           <path d={area} fill={`url(#${gradientId})`} />
           <path d={path} className={styles.forecastLine} vectorEffect="non-scaling-stroke" />
         </svg>
-        <span className={styles.nowMarker}>{nowLabel}</span>
+        <span className={styles.nowMarker} aria-hidden="true">
+          {nowLabel}
+        </span>
         {steps.map((step) => (
           <span
             key={step.atMs}
-            className={styles.stepLabel}
+            className={styles.stepAnchor}
             style={{ left: `${x(step.atMs)}%`, top: `${y(step.percent)}%` }}
           >
-            +{pct(step.restoresPercent)}
+            <HoverCard className={styles.stepLabel} content={<StepTooltip step={step} />}>
+              +{pct(step.restoresPercent)}
+            </HoverCard>
           </span>
         ))}
-        <div className={styles.dayLabels}>
+        <div className={styles.dayLabels} aria-hidden="true">
           {dayTicks.map((ms) => (
             <span key={ms} style={{ left: `${x(ms)}%` }}>
-              {dayLabel.format(ms)}
+              {formatCalendarDate(ms, locale, { month: 'short' })}
             </span>
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function NextPick({ preview, label }: { preview: RoutingPreview; label: string | null }) {
+  const { t } = useTranslation();
+  const hint = (
+    <div className={styles.tooltip}>
+      <strong>{preview.model}</strong>
+      <div>{t('quota_management.pool_next_pick_hint')}</div>
+      {preview.sessionAffinityEnabled && (
+        <div className={styles.muted}>{t('quota_management.pool_next_pick_affinity')}</div>
+      )}
+    </div>
+  );
+  return (
+    <HoverCard className={styles.nextPick} content={hint}>
+      <span className={styles.nextPickMark} aria-hidden="true" />
+      {t('quota_management.pool_next_pick')}{' '}
+      {preview.chosenAuthIndex ? (
+        <>
+          <strong>{label ?? preview.chosenAuthIndex}</strong>
+          {PREVIEW_REASONS.has(preview.reason) && (
+            <span className={styles.muted}>
+              {' '}
+              ({t(`quota_management.pool_next_pick_reason_${preview.reason.replace(/-/g, '_')}`)})
+            </span>
+          )}
+        </>
+      ) : (
+        <span className={styles.partial}>{t('quota_management.pool_next_pick_none')}</span>
+      )}
+    </HoverCard>
+  );
+}
+
+function PaceLine({ pace }: { pace: PoolPace }) {
+  const { t } = useTranslation();
+  const hint = t('quota_management.pool_pace_hint', {
+    used: pct(pace.actual * 100),
+    elapsed: pct(pace.expected * 100),
+  });
+  if (pace.status !== 'ahead') {
+    return (
+      <div className={styles.pace} title={hint}>
+        {pace.status === 'on'
+          ? t('quota_management.pool_pace_on')
+          : t('quota_management.pool_pace_under')}
+      </div>
+    );
+  }
+  return (
+    <div className={styles.pace} title={hint}>
+      <span className={styles.paceAhead}>{t('quota_management.pool_pace_ahead')}</span>
+      {pace.runsOutAtMs !== null &&
+        ` · ${t('quota_management.pool_pace_runs_out', { time: formatResetInstant(pace.runsOutAtMs) })}`}
     </div>
   );
 }
@@ -132,7 +242,8 @@ function PoolCard({
 }) {
   const { t, i18n } = useTranslation();
   const now = useNow();
-  const { summary, route, routeLabel, banked } = data;
+  const { summary, route, routeLabel, preview, previewLabel, banked } = data;
+  const live = isRouteLive(route, now);
   const icon = getAuthFileIcon(summary.provider, resolvedTheme);
   const next = summary.resets[0];
   // Accounts on monthly windows only: there is no weekly capacity to total.
@@ -156,21 +267,32 @@ function PoolCard({
             })}
           </span>
         </span>
-        {route && routeLabel ? (
-          <span className={styles.route}>
-            <span className={styles.liveDot} />
-            {t('quota_management.pool_routing_to')} <strong>{routeLabel}</strong>
-            <span className={styles.muted}>
-              {route.requests[0]?.model ?? ''} · {formatAgo(route.lastAtMs, now, t)}
+        <div className={styles.routing}>
+          {route && routeLabel ? (
+            <span className={styles.route}>
+              <span className={live ? styles.liveDot : styles.lastDot} />
+              {live
+                ? t('quota_management.pool_routing_to')
+                : t('quota_management.pool_last_routed_to')}{' '}
+              <strong>{routeLabel}</strong>
+              <span className={styles.muted}>
+                {route.model} ·{' '}
+                {route.running
+                  ? t('quota_management.routing_running', {
+                      duration: formatRunningFor((route.observedAtMs ?? now) - route.atMs),
+                    })
+                  : formatAgo(route.atMs, now, t)}
+              </span>
             </span>
-          </span>
-        ) : (
-          <span className={styles.routeIdle}>
-            {historyEnabled
-              ? t('quota_management.pool_routing_idle')
-              : t('quota_management.routing_history_disabled')}
-          </span>
-        )}
+          ) : (
+            <span className={styles.routeIdle}>
+              {historyEnabled
+                ? t('quota_management.pool_routing_idle')
+                : t('quota_management.routing_history_disabled')}
+            </span>
+          )}
+          {preview && <NextPick preview={preview} label={previewLabel} />}
+        </div>
       </header>
 
       <div className={styles.headline}>
@@ -218,7 +340,7 @@ function PoolCard({
                 className={[
                   styles.segment,
                   account.remaining <= 0 ? styles.segmentSpent : '',
-                  route?.authIndex === account.authIndex ? styles.segmentLive : '',
+                  live && route?.authIndex === account.authIndex ? styles.segmentLive : '',
                 ].join(' ')}
                 content={
                   <div className={styles.tooltip}>
@@ -252,7 +374,7 @@ function PoolCard({
                   </span>
                   <span className={styles.muted}>
                     {' '}
-                    ({next.accounts.map((account) => account.label).join(', ')})
+                    ({next.accounts.map(accountWithOrg).join(', ')})
                   </span>
                 </>
               ) : (
@@ -266,6 +388,7 @@ function PoolCard({
           )}
 
           <Forecast summary={summary} now={now} locale={i18n.resolvedLanguage} />
+          {summary.pace && <PaceLine pace={summary.pace} />}
         </>
       )}
 

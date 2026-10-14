@@ -57,13 +57,14 @@ export function QuotaCell({ cell, columnLabel, extras, dimmed = false }: QuotaCe
           ? styles.warn
           : styles.ok;
   const countdown = cell.resetAtMs !== null ? formatCompactCountdown(cell.resetAtMs, now) : null;
+  // The label was baked at fetch time; rebuild from the instant when there is one.
   const resetDisplay = buildResetDisplay(
-    cell.resetLabel,
+    cell.resetAtMs === null ? cell.resetLabel : null,
     cell.resetAtMs,
     now,
     i18n.resolvedLanguage
   );
-  // Exact instants are American (see timeCopy); the provider's own label is
+  // Exact instants are English, day first (see timeCopy); the provider's own label is
   // only the fallback when there is no timestamp.
   const exact = cell.resetAtMs !== null ? formatResetInstantShort(cell.resetAtMs) : null;
   const exactLong = cell.resetAtMs !== null ? formatResetInstant(cell.resetAtMs) : null;

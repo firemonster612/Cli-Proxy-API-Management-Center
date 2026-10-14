@@ -4,6 +4,7 @@ import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer'
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuthStore, useNotificationStore } from '@/stores';
+import { formatCalendarDateTime } from '@/utils/time/calendar';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
   getOpenAIProviderRecentWindowStats,
@@ -49,10 +50,12 @@ const formatDateTime = (iso: string, locale?: string) => {
   try {
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return iso;
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
+    return formatCalendarDateTime(
+      date.getTime(),
+      locale,
+      { month: 'short', year: true },
+      { hour: 'numeric', minute: '2-digit' }
+    );
   } catch {
     return iso;
   }

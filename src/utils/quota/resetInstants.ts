@@ -5,7 +5,7 @@
  * formatted it straight to a display string and dropped the original. That is
  * fine for a card row and useless for anything that has to *compute* with the
  * value — the quota timeline needs a real instant to position a bar, and
- * comparing "MM/DD, HH:MM" strings gets the order wrong across a year boundary.
+ * comparing "DD/MM, HH:MM" strings gets the order wrong across a year boundary.
  *
  * These helpers keep the instant alongside the label rather than replacing it,
  * so nothing about the existing rendering changes.

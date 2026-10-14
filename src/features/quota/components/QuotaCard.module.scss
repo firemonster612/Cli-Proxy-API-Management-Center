@@ -182,6 +182,23 @@
   @include text-ellipsis;
 }
 
+/* Quiet outlines: routing state, not account state. The next pick is dashed,
+ * like its mark on the pool card: where traffic would go, not where it went. */
+.routeChip,
+.nextPickChip {
+  background: none;
+  color: var(--quota-muted);
+}
+
+.routeChip {
+  box-shadow: inset 0 0 0 1px var(--quota-hairline);
+}
+
+.nextPickChip {
+  outline: 1px dashed color-mix(in srgb, var(--quota-muted) 60%, transparent);
+  outline-offset: -1px;
+}
+
 /* Green is reserved for live traffic and healthy bars. */
 .activityLive,
 .activityIdle {
@@ -489,7 +506,9 @@
   left: 8px;
   /* Replaced elements ignore `right` and fall back to the viewBox width, so size
    * explicitly: run up to the actions (the stamp sits on its own line below). */
-  width: calc(100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap));
+  width: calc(
+    100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap)
+  );
   /* Centered on the first grid row, so an expanded details panel stays clear. */
   top: var(--quota-row-center);
   height: 34px;
