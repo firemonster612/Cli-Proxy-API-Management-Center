@@ -1,19 +1,18 @@
 @use '../../../styles/mixins' as *;
 
+/* Pool overview: flat panels on the page, the accent carrying the headline
+ * number and the forecast line. */
+
 .pool {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 24px 48px;
 }
 
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+  gap: 12px;
   min-width: 0;
 }
 
@@ -21,7 +20,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--quota-hairline);
   font-size: 13px;
 }
 
@@ -29,19 +31,20 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: 700;
+  font-weight: 600;
+  white-space: nowrap;
   color: var(--text-primary);
 }
 
 .icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
 }
 
 .muted {
-  color: var(--text-tertiary);
-  font-weight: 500;
+  color: var(--quota-muted);
+  font-weight: 400;
 }
 
 .route {
@@ -49,25 +52,28 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  font-size: 12px;
+  max-width: 100%;
+  /* Room for the dot when the line wraps to the card's left edge. */
+  padding-left: 1px;
+  font-size: 12.5px;
   color: var(--text-secondary);
   @include text-ellipsis;
 
   strong {
     color: var(--text-primary);
-    font-weight: 650;
+    font-weight: 500;
   }
 }
 
 .routeIdle {
-  font-size: 12px;
-  color: var(--text-tertiary);
+  font-size: 12.5px;
+  color: var(--quota-muted);
 }
 
 .liveDot {
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--viz-success);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--viz-success) 60%, transparent);
@@ -76,7 +82,7 @@
 
 @keyframes pool-live-pulse {
   to {
-    box-shadow: 0 0 0 7px transparent;
+    box-shadow: 0 0 0 6px transparent;
   }
 }
 
@@ -84,16 +90,17 @@
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px 10px;
+  margin-top: 2px;
+  font-size: 14px;
 }
 
 .bigNumber {
-  font-size: 30px;
-  font-weight: 750;
+  font-size: 34px;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: var(--text-primary);
+  color: var(--quota-accent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -103,46 +110,42 @@
 
 /* The total leaves these accounts out, so flag it rather than mute it. */
 .partial {
-  color: var(--quota-medium-color);
-  font-weight: 600;
+  color: var(--quota-caution-text);
+  font-weight: 500;
 }
 
 .segments {
   display: grid;
   gap: 3px;
-  height: 12px;
+  height: 6px;
 }
 
 .segment {
   position: relative;
   display: block;
   height: 100%;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
 
 .segmentFill {
   display: block;
   height: 100%;
-  background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 45%, transparent);
 }
 
 .segmentSpent {
   background: repeating-linear-gradient(
     -45deg,
-    color-mix(in srgb, var(--viz-failure) 30%, transparent) 0 3px,
-    transparent 3px 6px
+    color-mix(in srgb, var(--quota-danger) 35%, transparent) 0 2px,
+    transparent 2px 5px
   );
 }
 
-.segmentLive {
-  outline: 2px solid var(--viz-success);
-  outline-offset: 1px;
-
-  .segmentFill {
-    background: var(--viz-success);
-  }
+/* Live traffic keeps green. */
+.segmentLive .segmentFill {
+  background: var(--viz-success);
 }
 
 .tooltip {
@@ -153,23 +156,43 @@
 }
 
 .nextReset {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-primary);
 
   strong {
-    font-weight: 650;
+    font-weight: 500;
   }
 }
 
 .restore {
-  color: var(--viz-success);
-  font-weight: 650;
+  color: var(--quota-accent);
+  font-weight: 600;
 }
 
+/* ---------- forecast: % axis | plot with gridlines, now marker, dates ---------- */
+
 .forecast {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  /* A fixed track, so the SVG's 100% height resolves instead of going square. */
+  grid-template-rows: 112px;
+  margin: 8px 0 22px;
+}
+
+.axis {
   position: relative;
-  height: 74px;
-  margin: 2px 0 14px;
+  font-size: 10.5px;
+  color: var(--quota-muted);
+
+  span {
+    position: absolute;
+    right: 8px;
+    transform: translateY(-50%);
+  }
+}
+
+.plot {
+  position: relative;
 }
 
 .forecastSvg {
@@ -179,41 +202,62 @@
   overflow: visible;
 }
 
-.dayLine {
-  stroke: color-mix(in srgb, var(--border-color) 70%, transparent);
-  stroke-width: 0.25;
+.gridLine {
+  stroke: var(--quota-hairline);
+  stroke-width: 1;
 }
 
-.forecastArea {
-  fill: color-mix(in srgb, var(--text-secondary) 12%, transparent);
+.gradientTop {
+  stop-color: var(--quota-accent);
+  stop-opacity: 0.24;
 }
 
+.gradientBottom {
+  stop-color: var(--quota-accent);
+  stop-opacity: 0.02;
+}
+
+/* Everything here is projected, so the whole line is dashed. */
 .forecastLine {
   fill: none;
-  stroke: var(--text-secondary);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
+  stroke: var(--quota-accent);
+  stroke-width: 1.75;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+}
+
+.nowMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  padding-left: 6px;
+  border-left: 1px dotted var(--quota-muted);
+  font-size: 10.5px;
+  line-height: 1;
+  color: var(--quota-muted);
 }
 
 .stepLabel {
   position: absolute;
-  transform: translate(-50%, -130%);
+  transform: translate(-50%, -150%);
   font-size: 10.5px;
-  font-weight: 700;
-  color: var(--viz-success);
+  font-weight: 600;
+  color: var(--quota-accent);
   white-space: nowrap;
 }
 
 .dayLabels {
   position: absolute;
-  inset: auto 0 -16px;
+  inset: auto 0 -20px;
   height: 14px;
   font-size: 10.5px;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
 
   span {
     position: absolute;
     transform: translateX(-50%);
+    white-space: nowrap;
   }
 }
 
@@ -221,16 +265,21 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #8b6cf0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+
+  svg {
+    color: var(--quota-accent);
+  }
 }
 
 .footnote {
   grid-column: 1 / -1;
-  margin: -4px 2px 0;
-  font-size: 11px;
-  color: var(--text-tertiary);
+  margin: -8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--quota-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

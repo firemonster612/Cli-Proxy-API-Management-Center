@@ -1,20 +1,27 @@
 @use '../../styles/mixins' as *;
+@use './palette' as *;
+@use './board' as *;
 
 /* ============================================================
  * 额度页壳层：纯布局，视觉细节都在各组件的 colocated 模块里。
  * ============================================================ */
 
 .page {
+  @include quota-palette;
+
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
   width: 100%;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 工作区（tabs + 网格 + 分页） ---------- */
 
+/* Size container for the board's width-dependent layout (_board.scss). */
 .workbench {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -33,6 +40,14 @@
   > :first-child {
     min-width: 0;
   }
+}
+
+/* ProviderTabs' theming hooks: plain text, accent text and underline on the active tab. */
+.tabsRow {
+  --tabs-border: var(--quota-hairline);
+  --tabs-muted: var(--quota-muted);
+  --tabs-accent: var(--quota-accent);
+  --tabs-hover-bg: transparent;
 }
 
 .sort {
@@ -65,17 +80,34 @@
 /* ---------- board ----------
  * The column geometry lives here so the sticky header (QuotaColumnsHeader)
  * and every row (QuotaCard) lay out on the same tracks:
- * icon | identity | 5-hour | weekly | weekly·model | actions. */
+ * icon | identity | 5-hour | weekly | weekly·model | actions.
+ * The actions are icon-only on a narrow board, so their track is too. */
 
 .list {
-  --quota-actions-width: 164px;
+  --quota-actions-width: 150px;
+  --quota-identity-width: minmax(140px, 180px);
   --quota-gap: 16px;
-  --quota-grid: 36px minmax(150px, 190px) repeat(3, minmax(0, 1fr)) var(--quota-actions-width);
+  --quota-grid: 22px var(--quota-identity-width) repeat(3, minmax(0, 1fr))
+    var(--quota-actions-width);
 
   display: grid;
-  gap: 8px;
+  gap: 0;
   grid-template-columns: 1fr;
   align-items: stretch;
+}
+
+@include wide-board {
+  .list {
+    --quota-actions-width: 320px;
+    --quota-identity-width: minmax(150px, 200px);
+    --quota-gap: 20px;
+  }
+}
+
+/* Loading placeholders shaped like the flat rows: one bar per row, split by hairlines. */
+.skeletonRow {
+  padding: 18px 4px 18px 14px;
+  border-bottom: 1px solid var(--quota-hairline);
 }
 
 @include mobile {
@@ -95,11 +127,8 @@
 }
 
 .pageInfo {
-  font-family: $font-mono;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
   white-space: nowrap;
 }
 

@@ -1,62 +1,76 @@
 @use '../../../styles/mixins' as *;
+@use '../board' as *;
 
-/* Ticket pill: rectangular, labelled with a count, in the reset-credit
- * accent, so it never reads as the round refresh button beside it. */
-.pill,
-.panel {
-  /* Reset credits get their own hue: violet reads as "spendable token", not status. */
-  --banked-color: #8b6cf0;
-}
-
+/* Quiet icon + text button, muted like the row's refresh action until
+ * hover; the icon takes the accent while resets are banked, and the whole
+ * button turns yellow when one expires soon. On a narrow board it shrinks
+ * to icon + count (the full text stays as its aria-label). */
 .pill {
   all: unset;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 9px;
-  border-radius: 7px;
-  border: 1px dashed color-mix(in srgb, var(--banked-color) 55%, var(--border-color));
-  background: color-mix(in srgb, var(--banked-color) 10%, transparent);
-  color: var(--banked-color);
-  font-family: $font-mono;
-  font-size: 12px;
-  font-weight: 700;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--quota-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
   transition:
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 
-  &:hover,
+  svg {
+    color: var(--quota-accent);
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+    color: var(--text-primary);
+  }
+
   &:focus-visible {
-    background: color-mix(in srgb, var(--banked-color) 18%, transparent);
+    outline: 2px solid var(--quota-accent);
+    outline-offset: 1px;
   }
 }
 
-.pillEmpty {
-  border-color: var(--border-color);
-  background: transparent;
-  color: var(--text-tertiary);
+.pillLabel {
+  display: none;
 }
 
-.pillUrgent {
-  border-color: color-mix(in srgb, var(--quota-medium-color) 65%, var(--border-color));
-  background: color-mix(in srgb, var(--quota-medium-color) 12%, transparent);
-  color: var(--quota-medium-color);
+@include wide-board {
+  .pillCount {
+    display: none;
+  }
+
+  .pillLabel {
+    display: inline;
+  }
 }
 
-.pillCount {
-  font-variant-numeric: tabular-nums;
+@include mobile {
+  .pillCount {
+    display: none;
+  }
+
+  .pillLabel {
+    display: inline;
+  }
 }
 
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.pillEmpty svg {
+  color: inherit;
+}
+
+.pillUrgent,
+.pillUrgent svg {
+  color: var(--quota-caution-text);
 }
 
 .panel {
@@ -92,15 +106,14 @@
 
 .available {
   font-size: 12px;
-  color: var(--banked-color);
-  font-weight: 650;
+  color: var(--quota-accent);
+  font-weight: 600;
 }
 
 .account {
   margin-top: -4px;
-  font-family: $font-mono;
-  font-size: 11px;
-  color: var(--text-tertiary);
+  font-size: 11.5px;
+  color: var(--quota-muted);
   @include text-ellipsis;
 }
 
@@ -127,23 +140,23 @@
   align-items: flex-start;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .itemSoon {
   box-shadow: inset 2px 0 0 var(--quota-medium-color);
 
   .itemPrimary {
-    color: var(--quota-medium-color);
+    color: var(--quota-caution-text);
   }
 }
 
 .itemCount {
   min-width: 22px;
-  font-family: $font-mono;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
 
@@ -162,7 +175,7 @@
 
 .itemSecondary {
   font-size: 11.5px;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
 }
 
 .useButton {
@@ -170,12 +183,17 @@
   box-sizing: border-box;
   text-align: center;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: 6px;
   font-size: 12.5px;
-  font-weight: 650;
-  background: var(--banked-color);
-  color: #fff;
+  font-weight: 600;
+  background: var(--quota-accent);
+  color: var(--quota-on-accent);
   cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--quota-accent);
+    outline-offset: 2px;
+  }
 
   &:disabled {
     opacity: 0.45;
@@ -186,5 +204,5 @@
 .hint {
   font-size: 11px;
   line-height: 1.4;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
 }

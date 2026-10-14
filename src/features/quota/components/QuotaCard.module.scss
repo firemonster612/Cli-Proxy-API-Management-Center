@@ -1,4 +1,5 @@
 @use '../../../styles/mixins' as *;
+@use '../board' as *;
 
 /* ============================================================
  * Board row. Column template and gap come from the list (--quota-grid,
@@ -6,60 +7,57 @@
  *
  *   [icon] [email / chips] [5-hour cell] [weekly cell] [model cell] [actions]
  *
- * Burning rows get a warm left edge; rows with a decision window under
- * 10% left get a red one.
+ * Rows sit flat on the page, split by hairlines. A 2px left marker flags
+ * state: green for the routed account, warm while burning, red when a
+ * decision window is under 10%.
  * ============================================================ */
 
 .card {
+  --quota-row-pad-y: 18px;
+  --quota-row-pad-right: 4px;
+  --quota-row-pad-left: 14px;
+  /* Vertical middle of the cells' bars, for the pen stroke and stamp. */
+  --quota-row-center: calc(var(--quota-row-pad-y) + 27px);
+
   position: relative;
   display: grid;
   grid-template-columns: var(--quota-grid);
   column-gap: var(--quota-gap);
-  row-gap: 10px;
-  align-items: center;
-  padding: 14px 20px 14px 18px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
-  transition:
-    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
-    box-shadow var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+  row-gap: 12px;
+  align-items: start;
+  padding: var(--quota-row-pad-y) var(--quota-row-pad-right) var(--quota-row-pad-y)
+    var(--quota-row-pad-left);
+  border-bottom: 1px solid var(--quota-hairline);
+  transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 }
 
+/* background-color only, so a burning row keeps its warm gradient on hover. */
 @media (hover: hover) and (pointer: fine) {
   .card:hover {
-    border-color: var(--border-hover);
-    box-shadow: 0 10px 28px -18px rgb(0 0 0 / 0.22);
+    background-color: color-mix(in srgb, var(--text-primary) 2.5%, transparent);
   }
 }
 
 .low {
-  box-shadow: inset 3px 0 0 var(--viz-failure);
+  box-shadow: inset 2px 0 0 var(--quota-danger);
 }
 
 .burning {
-  border-color: color-mix(in srgb, var(--warning-color) 45%, var(--border-color));
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--warning-color) 9%, transparent),
-      transparent 42%
-    ),
-    color-mix(in srgb, var(--bg-primary) 86%, transparent);
-  box-shadow: inset 3px 0 0 var(--warning-color);
-
-  .iconWrap {
-    background: color-mix(in srgb, var(--warning-color) 14%, transparent);
-  }
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--warning-color) 8%, transparent),
+    transparent 40%
+  );
+  box-shadow: inset 2px 0 0 var(--warning-color);
 
   .cloudIcon {
     color: var(--warning-color);
   }
 }
 
-/* Both cues at once: warm edge wins the stripe, red stays on the numbers. */
+/* Both cues at once: warm marker wins, red stays on the numbers. */
 .burning.low {
-  box-shadow: inset 3px 0 0 var(--warning-color);
+  box-shadow: inset 2px 0 0 var(--warning-color);
 }
 
 /* One-time cascade on first data; tab switch / paging / refresh don't replay */
@@ -71,21 +69,26 @@
 @keyframes quota-card-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 14px, 0);
+    transform: translate3d(0, 10px, 0);
   }
 }
 
 /* ---------- identity ---------- */
 
 .iconWrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--bg-tertiary) 75%, transparent);
-  transition: background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+  width: 22px;
+  height: 20px;
+}
+
+.providerIcon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
 }
 
 .cloudIcon {
@@ -97,22 +100,21 @@
 .identity {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
   outline: none;
-  border-radius: 8px;
+  border-radius: 4px;
 
   &:focus-visible {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 35%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--quota-accent) 45%, transparent);
   }
 }
 
 .email {
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: -0.005em;
-  line-height: 1.3;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
   color: var(--text-primary);
   @include text-ellipsis;
 }
@@ -131,44 +133,38 @@
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  padding: 2px 8px;
-  border-radius: $radius-full;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
   line-height: 1.5;
-  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .chip {
-  border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
 }
 
 .chipMuted {
   padding-left: 0;
-  color: var(--text-tertiary);
-  font-weight: 500;
+  color: var(--quota-muted);
 }
 
 /* Plan tier tint classes come from QuotaBody (elite/premium). */
 .planChip {
-  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
 }
 
 .burnChip {
-  border-color: color-mix(in srgb, var(--warning-color) 45%, transparent);
-  background: color-mix(in srgb, var(--warning-color) 12%, transparent);
+  background: color-mix(in srgb, var(--warning-color) 14%, transparent);
   color: var(--warning-text);
 }
 
 .chipDetail {
-  font-family: $font-mono;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
   opacity: 0.85;
 
   &::before {
@@ -176,6 +172,56 @@
     margin: 0 4px 0 1px;
     opacity: 0.6;
   }
+}
+
+.orgChip {
+  max-width: 150px;
+}
+
+.orgName {
+  @include text-ellipsis;
+}
+
+/* Green is reserved for live traffic and healthy bars. */
+.activityLive,
+.activityIdle {
+  font-size: 12px;
+  line-height: 1.4;
+  @include text-ellipsis;
+}
+
+.activityLive {
+  color: var(--quota-success-text);
+  font-weight: 500;
+}
+
+.activityIdle {
+  color: var(--quota-muted);
+}
+
+.liveBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+  background: var(--viz-success);
+  animation: quota-live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes quota-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viz-success) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+.routed {
+  box-shadow: inset 2px 0 0 var(--viz-success);
 }
 
 /* ---------- tooltip bodies ---------- */
@@ -211,6 +257,7 @@
 
 .idleBody {
   grid-column: 3 / 6;
+  align-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,10 +265,10 @@
   min-height: 38px;
   padding: 6px 14px;
   cursor: pointer;
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
+  border: 1px dashed var(--quota-hairline);
+  border-radius: 6px;
   background: none;
-  color: var(--text-tertiary);
+  color: var(--quota-muted);
   transition:
     border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
@@ -232,16 +279,16 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--primary-color);
+    outline: 2px solid var(--quota-accent);
     outline-offset: 2px;
   }
 }
 
 @media (hover: hover) and (pointer: fine) {
   .idleBody:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+    border-color: var(--border-hover);
     border-style: solid;
-    color: var(--text-secondary);
+    color: var(--text-primary);
   }
 }
 
@@ -251,33 +298,26 @@
 }
 
 .idleHint {
-  font-family: $font-mono;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.5;
   text-align: center;
 }
 
-/* Skeleton: one track per cell, aligned like the real bars */
+/* Skeleton: one thin track per cell, at the height of the real bars */
 .shimmerCell {
-  display: grid;
-  grid-template-columns: 3.6ch minmax(0, 1fr) 5.6ch;
-  column-gap: 8px;
-  row-gap: 5px;
-  align-items: center;
-  padding: 2px 0;
+  display: block;
+  padding-top: 25px;
 }
 
 .shimmerTrack {
-  grid-column: 2;
-  grid-row: 2;
   display: block;
-  height: 10px;
+  height: 4px;
   border-radius: $radius-full;
-  background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  background-color: color-mix(in srgb, var(--text-primary) 10%, transparent);
   background-image: linear-gradient(
     90deg,
     transparent 20%,
-    color-mix(in srgb, var(--text-primary) 6%, transparent) 50%,
+    color-mix(in srgb, var(--text-primary) 8%, transparent) 50%,
     transparent 80%
   );
   background-repeat: no-repeat;
@@ -308,67 +348,95 @@
 
 .errorStrip {
   grid-column: 3 / 6;
-  font-size: 11.5px;
+  align-self: center;
+  font-size: 12px;
   line-height: 1.5;
-  color: var(--viz-failure);
-  background: color-mix(in srgb, var(--viz-failure) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--viz-failure) 32%, transparent);
-  border-radius: 9px;
+  color: var(--quota-danger);
+  background: color-mix(in srgb, var(--quota-danger) 8%, transparent);
+  border-radius: 6px;
   padding: 9px 12px;
   overflow-wrap: anywhere;
 }
 
-/* ---------- actions: quiet icon buttons ---------- */
+/* ---------- actions: quiet icon + text buttons, muted until hover ----------
+ * Icon-only on a narrow board (see ../_board.scss); the labels come back on a
+ * wide board and on phones. Buttons never shrink: the group wraps instead. */
 
 .actions {
+  /* Pinned to the first row's last track, so a stamp on its own line below can't displace it. */
+  grid-row: 1;
+  grid-column: -2 / -1;
+  align-self: center;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 2px;
 }
 
+.actionButton,
 .iconButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  gap: 6px;
+  height: 30px;
   cursor: pointer;
-  border: 1px solid var(--border-color);
-  border-radius: $radius-full;
+  border: 0;
+  border-radius: 6px;
   background: none;
-  color: var(--text-secondary);
+  color: var(--quota-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition:
-    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out),
-    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
     color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.96);
+    opacity: 0.45;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+    outline: 2px solid var(--quota-accent);
+    outline-offset: 1px;
   }
 }
 
+.actionButton {
+  padding: 0 8px;
+}
+
+.actionLabel {
+  display: none;
+}
+
+@include wide-board {
+  .actionLabel {
+    display: inline;
+  }
+}
+
+.iconButton {
+  width: 30px;
+}
+
 @media (hover: hover) and (pointer: fine) {
+  .actionButton:hover:not(:disabled),
   .iconButton:hover:not(:disabled) {
-    border-color: var(--border-hover);
-    background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
+    background: color-mix(in srgb, var(--text-primary) 6%, transparent);
     color: var(--text-primary);
   }
 }
 
+.iconButtonActive {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
 .iconButtonBurning {
-  border-color: color-mix(in srgb, var(--warning-color) 55%, transparent);
   background: color-mix(in srgb, var(--warning-color) 12%, transparent);
   color: var(--warning-color);
 
@@ -387,106 +455,52 @@
   }
 }
 
-/* ---------- provider icon + live traffic ---------- */
-
-.iconWrap {
-  position: relative;
-}
-
-.providerIcon {
-  display: block;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-}
-
-/* Green is reserved for live traffic (see themes.scss). */
-.liveBadge {
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid var(--bg-primary);
-  background: var(--viz-success);
-  animation: quota-live-pulse 1.8s ease-out infinite;
-}
-
-@keyframes quota-live-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viz-success) 55%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-}
-
-.routed {
-  border-color: color-mix(in srgb, var(--viz-success) 45%, var(--border-color));
-  box-shadow: inset 3px 0 0 var(--viz-success);
-}
-
-.activityLive,
-.activityIdle {
-  font-size: 11px;
-  line-height: 1.3;
-  @include text-ellipsis;
-}
-
-.activityLive {
-  color: var(--viz-success);
-  font-weight: 600;
-}
-
-.activityIdle {
-  color: var(--text-tertiary);
-}
-
-.orgChip {
-  max-width: 150px;
-}
-
-.orgName {
-  @include text-ellipsis;
-}
-
-.iconButtonActive {
-  border-color: var(--border-hover);
-  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
-  color: var(--text-primary);
-}
-
 .detailsSlot {
   grid-column: 1 / -1;
   min-width: 0;
 }
 
-/* ---------- weekly limit spent: crossed out with a pen, stamped with the return time ---------- */
+/* ---------- weekly limit spent: grayed, crossed out, stamped with the return time ----------
+ * The icon fades; text turns to opaque grays that keep ≥4.5:1 (the cells
+ * gray themselves through QuotaCell's `dimmed`). */
 
 .spent {
-  > *:not(.penStroke):not(.spentStamp):not(.actions):not(.detailsSlot) {
-    opacity: 0.4;
-    filter: grayscale(0.85);
+  .iconWrap {
+    opacity: 0.55;
+    filter: grayscale(1);
+  }
+
+  .email {
+    color: var(--text-secondary);
+  }
+
+  .chips {
+    filter: grayscale(1);
+  }
+
+  .activityLive,
+  .activityIdle {
+    color: var(--quota-muted);
   }
 }
 
 .penStroke {
   position: absolute;
-  left: 12px;
-  /* Replaced elements ignore `right` and fall back to the viewBox width, so size explicitly:
-   * stop short of the stamp, which sits just left of the actions. */
-  width: calc(100% - 12px - 20px - var(--quota-actions-width) - var(--quota-gap) - 120px);
+  left: 8px;
+  /* Replaced elements ignore `right` and fall back to the viewBox width, so size
+   * explicitly: run up to the actions (the stamp sits on its own line below). */
+  width: calc(100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap));
   /* Centered on the first grid row, so an expanded details panel stays clear. */
-  top: var(--quota-row-center, 36px);
-  height: 40px;
+  top: var(--quota-row-center);
+  height: 34px;
   transform: translateY(-50%);
   overflow: visible;
   pointer-events: none;
+  opacity: 0.85;
 
   path {
     fill: none;
-    stroke: var(--viz-failure);
+    stroke: var(--quota-danger);
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
     stroke-dasharray: 1;
@@ -495,12 +509,12 @@
   }
 
   path:first-child {
-    stroke-width: 4.5;
+    stroke-width: 3;
   }
 
   path:last-child {
-    stroke-width: 2.4;
-    opacity: 0.75;
+    stroke-width: 1.6;
+    opacity: 0.7;
     animation-delay: 0.45s;
   }
 }
@@ -511,55 +525,71 @@
   }
 }
 
+/* Narrow desktop boards: cells are too tight to share space with the stamp, so it
+ * takes its own line under them. Wide boards float it over the last cell, where
+ * it repeats what that crossed-out cell already says. */
 .spentStamp {
-  position: absolute;
-  top: var(--quota-row-center, 36px);
-  right: calc(20px + var(--quota-actions-width) + var(--quota-gap));
-  transform: translateY(-50%) rotate(-1.5deg);
+  grid-column: 3 / -2;
+  justify-self: start;
+  transform: rotate(-1.5deg);
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 7px 12px 8px;
-  border-radius: 8px;
-  border: 1.5px solid color-mix(in srgb, var(--viz-failure) 70%, transparent);
-  background: var(--bg-primary);
-  box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.4);
+  padding: 6px 11px 7px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--quota-danger) 65%, transparent);
+  background: var(--bg-secondary);
   text-align: left;
+}
+
+@include wide-board {
+  .penStroke {
+    width: calc(
+      100% - 8px - var(--quota-row-pad-right) - var(--quota-actions-width) - var(--quota-gap) -
+        140px
+    );
+  }
+
+  .spentStamp {
+    /* An absolute grid child with a grid-column uses that area as its containing block. */
+    grid-column: auto;
+    position: absolute;
+    top: var(--quota-row-center);
+    right: calc(var(--quota-row-pad-right) + var(--quota-actions-width) + var(--quota-gap));
+    transform: translateY(-50%) rotate(-1.5deg);
+  }
 }
 
 .spentTitle {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--viz-failure);
+  color: var(--quota-danger);
 }
 
 .spentRelative {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .spentExact {
   font-size: 11.5px;
-  color: var(--text-secondary);
+  color: var(--quota-muted);
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- phone: icon | identity | actions, then cells stacked ---------- */
+/* ---------- phone: icon | identity, cells stacked, actions last ---------- */
 
 @include mobile {
   .card {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    column-gap: 14px;
-    row-gap: 6px;
-    padding: 14px 16px;
-  }
+    --quota-row-pad-left: 12px;
+    --quota-row-pad-right: 12px;
 
-  .actions {
-    grid-row: 1;
-    grid-column: 3;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 6px;
   }
 
   .penStroke {
@@ -567,35 +597,33 @@
   }
 
   .spentStamp {
-    position: static;
     grid-column: 1 / -1;
     transform: none;
   }
 
-  .providerBody,
-  .idleBody,
-  .errorStrip,
-  .shimmerCell {
+  /* Cells, bodies and actions each take a full-width row beneath the identity line. */
+  .card > *:not(.iconWrap):not(.identity) {
     grid-column: 1 / -1;
   }
 
-  /* Each QuotaCell takes its own full-width row beneath the identity line. */
-  .card > *:not(.iconWrap):not(.identity):not(.actions) {
-    grid-column: 1 / -1;
+  .actions {
+    grid-row: auto;
+    justify-content: flex-start;
+    margin-left: -8px;
+  }
+
+  .actionLabel {
+    display: inline;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card,
   .idleBody,
+  .actionButton,
   .iconButton,
-  .iconWrap,
   .cloudIcon {
     transition: none;
-  }
-
-  .iconButton:active:not(:disabled) {
-    transform: none;
   }
 
   .cardEnter,

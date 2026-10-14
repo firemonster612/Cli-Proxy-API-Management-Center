@@ -1,7 +1,7 @@
 /**
- * Banked resets for one account: a labelled ticket pill in the row's actions
- * (deliberately unlike the round refresh button) that opens a panel listing
- * every banked reset with its expiry, soonest first, and a button to spend one.
+ * Banked resets for one account: a quiet "N banked resets" button in the
+ * row's actions that opens a panel listing every banked reset with its
+ * expiry, soonest first, and a button to spend one.
  */
 
 import { useCallback, useState } from 'react';
@@ -53,11 +53,14 @@ export function BankedResetsButton({
         onClick={(event) => setAt(pointUnder(event.currentTarget, PANEL_WIDTH))}
         aria-haspopup="dialog"
         aria-expanded={at !== null}
+        aria-label={t('quota_management.pool_banked', { count: banked.available })}
         title={t('quota_management.banked_title')}
       >
-        <IconTicket size={13} aria-hidden="true" />
+        <IconTicket size={14} aria-hidden="true" />
         <span className={styles.pillCount}>{banked.available}</span>
-        <span className={styles.srOnly}>{t('quota_management.banked_title')}</span>
+        <span className={styles.pillLabel}>
+          {t('quota_management.pool_banked', { count: banked.available })}
+        </span>
       </button>
 
       {at && (

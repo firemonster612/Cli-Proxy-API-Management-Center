@@ -7,7 +7,7 @@
  *
  * An account whose weekly window is exhausted is crossed out with a pen
  * stroke, with a stamp saying when it comes back. The account currently
- * receiving the provider's traffic gets a green edge; the activity button
+ * receiving the provider's traffic gets a green marker; the activity button
  * expands the requests it served (RoutingDetails).
  *
  * Burn pins ("only burn this account") open from a right-click anywhere on
@@ -253,13 +253,18 @@ export function QuotaCard(props: QuotaCardProps) {
     if (columnar && columns) {
       return (
         <>
-          <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} />
+          <QuotaCell cell={columns.fiveHour} columnLabel={columnLabels.fiveHour} dimmed={spent} />
           <QuotaCell
             cell={columns.weekly}
             columnLabel={columnLabels.weekly}
             extras={weeklyExtras}
+            dimmed={spent}
           />
-          <QuotaCell cell={columns.weeklyModel} columnLabel={columnLabels.weeklyModel} />
+          <QuotaCell
+            cell={columns.weeklyModel}
+            columnLabel={columnLabels.weeklyModel}
+            dimmed={spent}
+          />
         </>
       );
     }
@@ -374,13 +379,14 @@ export function QuotaCard(props: QuotaCardProps) {
         {status !== 'idle' && (
           <button
             type="button"
-            className={styles.iconButton}
+            className={styles.actionButton}
             onClick={onRefresh}
             disabled={isQuotaRefreshDisabled(canRefresh, loading, resetting)}
             title={t('auth_files.quota_refresh_hint')}
             aria-label={t('auth_files.quota_refresh_single')}
           >
             <IconRefreshCw size={14} className={loading ? styles.spinning : undefined} />
+            <span className={styles.actionLabel}>{t('auth_files.quota_refresh_single')}</span>
           </button>
         )}
         <button

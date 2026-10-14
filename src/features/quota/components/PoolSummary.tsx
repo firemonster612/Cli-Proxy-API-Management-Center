@@ -5,10 +5,11 @@
  *   62% of weekly pool left · 5-hour 48%
  *   [account segments, width = plan weight, fill = weekly left]
  *   Next reset Wed, Oct 15, 4:12 AM · in 1 day, 7 hours · +17% of pool
- *   [7-day step forecast: the pool if nothing else is used]
+ *   [7-day step forecast from now: the pool if nothing else is used]
  *   3 banked resets · next expires in 19 hours
  */
 
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HoverCard } from '@/components/ui/HoverCard';
 import { IconTicket } from '@/components/ui/icons';
@@ -32,6 +33,7 @@ export interface PoolCardData {
 
 const pct = (value: number) => `${Math.round(value)}%`;
 const FORECAST_HORIZON_MS = 7 * DAY_MS;
+const GRID_PERCENTS = [100, 50, 0];
 
 function Forecast({
   summary,
@@ -42,6 +44,8 @@ function Forecast({
   now: number;
   locale?: string;
 }) {
+  // useId's punctuation isn't safe inside url(#…).
+  const gradientId = `pool-fill-${useId().replace(/[^\w-]/g, '')}`;
   const end = now + FORECAST_HORIZON_MS;
   const x = (ms: number) => ((ms - now) / FORECAST_HORIZON_MS) * 100;
   const y = (percent: number) => 100 - Math.max(0, Math.min(100, percent));
@@ -60,32 +64,58 @@ function Forecast({
   const firstMidnight = new Date(now);
   firstMidnight.setHours(24, 0, 0, 0);
   for (let ms = firstMidnight.getTime(); ms < end; ms += DAY_MS) dayTicks.push(ms);
-  const weekday = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const dayLabel = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
+  // "now" in the reader's language without another translation key.
+  const nowLabel = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'second');
 
   return (
     <div className={styles.forecast} aria-hidden="true">
-      <svg className={styles.forecastSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
-        {dayTicks.map((ms) => (
-          <line key={ms} x1={x(ms)} x2={x(ms)} y1={0} y2={100} className={styles.dayLine} />
-        ))}
-        <path d={area} className={styles.forecastArea} />
-        <path d={path} className={styles.forecastLine} vectorEffect="non-scaling-stroke" />
-      </svg>
-      {steps.map((step) => (
-        <span
-          key={step.atMs}
-          className={styles.stepLabel}
-          style={{ left: `${x(step.atMs)}%`, top: `${y(step.percent)}%` }}
-        >
-          +{pct(step.restoresPercent)}
-        </span>
-      ))}
-      <div className={styles.dayLabels}>
-        {dayTicks.map((ms) => (
-          <span key={ms} style={{ left: `${x(ms)}%` }}>
-            {weekday.format(ms)}
+      <div className={styles.axis}>
+        {GRID_PERCENTS.map((percent) => (
+          <span key={percent} style={{ top: `${y(percent)}%` }}>
+            {percent}%
           </span>
         ))}
+      </div>
+      <div className={styles.plot}>
+        <svg className={styles.forecastSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className={styles.gradientTop} />
+              <stop offset="1" className={styles.gradientBottom} />
+            </linearGradient>
+          </defs>
+          {GRID_PERCENTS.map((percent) => (
+            <line
+              key={percent}
+              x1={0}
+              x2={100}
+              y1={y(percent)}
+              y2={y(percent)}
+              className={styles.gridLine}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          <path d={area} fill={`url(#${gradientId})`} />
+          <path d={path} className={styles.forecastLine} vectorEffect="non-scaling-stroke" />
+        </svg>
+        <span className={styles.nowMarker}>{nowLabel}</span>
+        {steps.map((step) => (
+          <span
+            key={step.atMs}
+            className={styles.stepLabel}
+            style={{ left: `${x(step.atMs)}%`, top: `${y(step.percent)}%` }}
+          >
+            +{pct(step.restoresPercent)}
+          </span>
+        ))}
+        <div className={styles.dayLabels}>
+          {dayTicks.map((ms) => (
+            <span key={ms} style={{ left: `${x(ms)}%` }}>
+              {dayLabel.format(ms)}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -12,7 +12,11 @@ import {
   resolveClaudePlanType,
 } from '@/features/quota/providers/claude/data';
 import { currentRoutes, groupActivityByAccount, isLive } from '@/features/quota/routing';
-import { formatLongDuration, formatResetInstant } from '@/features/quota/timeCopy';
+import {
+  formatLongDuration,
+  formatResetInstant,
+  formatResetInstantShort,
+} from '@/features/quota/timeCopy';
 import type { RecentRequest } from '@/services/api';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 
@@ -230,5 +234,11 @@ describe('formatResetInstant', () => {
   test('is American weekday, date and 12-hour clock in the local zone', () => {
     // Local-time constructor, so the expectation holds in any time zone.
     expect(formatResetInstant(new Date(2026, 9, 15, 4, 12).getTime())).toBe('Thu, Oct 15, 4:12 AM');
+  });
+
+  test('has a short numeric-date variant for the bar cells that never splits the clock', () => {
+    expect(formatResetInstantShort(new Date(2026, 9, 15, 17, 34).getTime())).toBe(
+      'Thu, 10/15, 5:34\u00a0PM'
+    );
   });
 });

@@ -1,12 +1,16 @@
+@use '../palette' as *;
+
 .panel {
+  @include quota-palette;
+
   position: fixed;
   z-index: 1200;
   min-width: 224px;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
-  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.35);
+  box-shadow: 0 16px 36px -16px rgb(0 0 0 / 0.45);
   display: flex;
   flex-direction: column;
   gap: 1px;

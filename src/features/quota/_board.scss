@@ -1,0 +1,9 @@
+/* The board (QuotaPage .workbench) is a size container. Row actions show
+ * their text labels only when it is wide enough to keep the three quota
+ * cells readable beside them; narrower desktop boards get icon-only actions.
+ * Phones stack the row, so they get the labels back on their own line. */
+@mixin wide-board {
+  @container (min-width: 1100px) {
+    @content;
+  }
+}
