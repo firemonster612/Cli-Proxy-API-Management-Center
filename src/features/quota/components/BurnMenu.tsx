@@ -15,14 +15,30 @@ export interface BurnMenuProps {
   at: { x: number; y: number };
   title: string;
   pin?: BurnPin;
+  /** The account has no five-hour limit, so "until the five-hour reset" never ends. */
+  noFiveHourLimit?: boolean;
   busy: boolean;
   onChoose: (choice: BurnChoice) => void;
   onStop: () => void;
   onClose: () => void;
 }
 
-export function BurnMenu({ at, title, pin, busy, onChoose, onStop, onClose }: BurnMenuProps) {
+export function BurnMenu({
+  at,
+  title,
+  pin,
+  noFiveHourLimit = false,
+  busy,
+  onChoose,
+  onStop,
+  onClose,
+}: BurnMenuProps) {
   const { t } = useTranslation();
+  const choices = noFiveHourLimit
+    ? BURN_CHOICES.filter(
+        (choice) => !(choice.kind === 'until' && choice.window === 'five-hour-reset')
+      )
+    : BURN_CHOICES;
 
   return (
     <FloatingPanel at={at} label={title} onClose={onClose}>
@@ -33,7 +49,7 @@ export function BurnMenu({ at, title, pin, busy, onChoose, onStop, onClose }: Bu
         <IconFlame size={13} aria-hidden="true" />
         {t('quota_management.burn_only_this')}
       </div>
-      {BURN_CHOICES.map((choice) => (
+      {choices.map((choice) => (
         <button
           key={choice.labelKey}
           type="button"

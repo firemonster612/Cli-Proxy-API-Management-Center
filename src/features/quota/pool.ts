@@ -1,11 +1,12 @@
 /**
  * Pooled weekly capacity per provider.
  *
- * Each account counts in proportion to its subscription multiplier (Max 20x
- * counts four times a Max 5x), so "62% of the pool left" means 62% of the
- * combined weekly capacity, not the average of the bars. The multipliers are
- * the advertised plan multiples, not measured limits, so the UI labels the
- * total as an estimate and shows each account's weight.
+ * Each account counts in proportion to its subscription multiplier (Ultra,
+ * formerly Max 20x, counts four times Max, formerly Max 5x), so "62% of the
+ * pool left" means 62% of the combined weekly capacity, not the average of the
+ * bars. The multipliers are the advertised plan multiples, not measured
+ * limits, so the UI labels the total as an estimate and shows each account's
+ * weight.
  *
  * The pool is weekly only: accounts on a monthly window (Codex Team) are
  * counted separately rather than mixed into weekly capacity.
@@ -37,6 +38,7 @@ export function planWeight(type: QuotaProviderType, quota: QuotaCardState | unde
     const claude = quota as ClaudeQuotaState;
     const multiple = /(\d+)x\b/i.exec(claude.rateLimitTier ?? '');
     if (multiple) return Number(multiple[1]);
+    if (claude.planType === 'plan_ultra') return 20;
     return claude.planType === 'plan_max' ? 5 : 1;
   }
   if (type === 'codex') {

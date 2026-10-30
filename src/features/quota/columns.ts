@@ -20,7 +20,18 @@ export interface QuotaCellData {
   label: string;
   labelKey?: string;
   labelParams?: Record<string, string | number>;
+  /** The provider sets no limit on this window, so there is nothing to show. */
+  noLimit?: boolean;
 }
+
+const NO_LIMIT_CELL: QuotaCellData = {
+  remaining: null,
+  resetAtMs: null,
+  periodHours: null,
+  resetLabel: '',
+  label: '',
+  noLimit: true,
+};
 
 export interface QuotaColumns {
   fiveHour: QuotaCellData | null;
@@ -73,9 +84,12 @@ export function buildQuotaColumns(
       const windows = (quota as ClaudeQuotaState).windows ?? [];
       const byId = new Map(windows.map((window) => [window.id, window]));
       const modelWindow = CLAUDE_MODEL_WEEKLY_IDS.map((id) => byId.get(id)).find(Boolean);
+      const weekly = toCell(byId.get('seven-day'));
       return {
-        fiveHour: toCell(byId.get('five-hour')),
-        weekly: toCell(byId.get('seven-day')),
+        // A weekly window without a five-hour one means Anthropic set no
+        // five-hour limit on the account, as on verified Ultra plans.
+        fiveHour: toCell(byId.get('five-hour')) ?? (weekly ? NO_LIMIT_CELL : null),
+        weekly,
         weeklyModel: toCell(modelWindow),
       };
     }

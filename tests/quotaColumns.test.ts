@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { buildQuotaColumns, isRunningLow } from '@/features/quota/columns';
+import { buildClaudeQuotaWindows } from '@/features/quota/providers/claude/data';
 import type { ClaudeQuotaState, CodexQuotaState } from '@/types';
 
 const window = (id: string, usedPercent: number | null, resetAtMs: number | null = null) => ({
@@ -42,6 +43,24 @@ describe('buildQuotaColumns', () => {
     expect(columns?.fiveHour?.remaining).toBe(67);
     expect(columns?.weekly?.label).toBe('monthly');
     expect(columns?.weeklyModel).toBeNull();
+  });
+
+  test('claude with a weekly window but no five-hour one has no five-hour limit', () => {
+    const quota: ClaudeQuotaState = { status: 'success', windows: [window('seven-day', 30)] };
+    const columns = buildQuotaColumns('claude', quota);
+    expect(columns?.fiveHour?.noLimit).toBe(true);
+    expect(columns?.fiveHour?.remaining).toBeNull();
+    expect(isRunningLow(columns)).toBe(false);
+  });
+
+  test('an unreadable five-hour window stays unknown, not no limit', () => {
+    const windows = buildClaudeQuotaWindows(
+      { five_hour: {}, seven_day: { utilization: 20, resets_at: null } } as never,
+      ((key: string) => key) as never
+    );
+    const columns = buildQuotaColumns('claude', { status: 'success', windows });
+    expect(columns?.fiveHour?.noLimit).toBeUndefined();
+    expect(columns?.fiveHour?.remaining).toBeNull();
   });
 
   test('unknown usage stays null rather than reading as empty', () => {

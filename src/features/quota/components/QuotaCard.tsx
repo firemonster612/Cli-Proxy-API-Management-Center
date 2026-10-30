@@ -490,6 +490,7 @@ export function QuotaCard(props: QuotaCardProps) {
           at={menuAt}
           title={identity}
           pin={pin}
+          noFiveHourLimit={columns?.fiveHour?.noLimit}
           busy={burnBusy}
           onChoose={onBurn}
           onStop={onStopBurning}

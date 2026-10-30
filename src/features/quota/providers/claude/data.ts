@@ -70,8 +70,11 @@ export const buildClaudeQuotaWindows = (
   for (const { key, id, labelKey } of CLAUDE_USAGE_WINDOW_KEYS) {
     if (key === 'iguana_necktie' && fableLimit) continue;
     const window = payload[key as keyof ClaudeUsagePayload];
-    if (!window || typeof window !== 'object' || !('utilization' in window)) continue;
-    const typedWindow = window as { utilization: number; resets_at: string | null };
+    if (!window || typeof window !== 'object') continue;
+    // An unreadable five-hour object stays as an unknown window, so the board
+    // does not take it for an account without a five-hour limit.
+    if (!('utilization' in window) && key !== 'five_hour') continue;
+    const typedWindow = window as { utilization?: number; resets_at?: string | null };
     const usedPercent = normalizeNumberValue(typedWindow.utilization);
     const resetLabel = formatQuotaResetTime(typedWindow.resets_at ?? undefined);
     windows.push({
@@ -82,7 +85,7 @@ export const buildClaudeQuotaWindows = (
       resetLabel,
       // Claude states the period nowhere in the payload, so it comes from the
       // key: `five_hour` is the rolling window, everything else is weekly.
-      resetAtMs: resolveResetMs([typedWindow.resets_at]),
+      resetAtMs: resolveResetMs([typedWindow.resets_at ?? null]),
       periodHours: claudePeriodHours(key),
     });
   }
@@ -139,20 +142,27 @@ const parseClaudeProfilePayload = (payload: unknown): ClaudeProfileResponse | nu
 export const resolveClaudePlanType = (profile: ClaudeProfileResponse | null): string | null => {
   if (!profile) return null;
 
+  const organizationType = normalizeStringValue(
+    profile.organization?.organization_type
+  )?.toLowerCase();
+  const rateLimitTier = profile.organization?.rate_limit_tier ?? '';
   const hasClaudeMax = normalizeFlagValue(profile.account?.has_claude_max);
-  if (hasClaudeMax) {
-    const multiple = /(\d+)x\b/i.exec(profile.organization?.rate_limit_tier ?? '');
-    if (multiple?.[1] === '5') return 'plan_max5';
-    if (multiple?.[1] === '20') return 'plan_max20';
-    return 'plan_max';
+  // Anthropic renamed Max 20x to Ultra and Max 5x to Max. Today's profiles
+  // still say `has_claude_max` with a `_20x` tier; the other checks catch the
+  // Ultra names the profile may switch to.
+  if (
+    normalizeFlagValue(profile.account?.has_claude_ultra) ||
+    organizationType === 'claude_ultra' ||
+    /ultra/i.test(rateLimitTier) ||
+    (hasClaudeMax && /(\d+)x\b/i.exec(rateLimitTier)?.[1] === '20')
+  ) {
+    return 'plan_ultra';
   }
+  if (hasClaudeMax) return 'plan_max';
 
   const hasClaudePro = normalizeFlagValue(profile.account?.has_claude_pro);
   if (hasClaudePro) return 'plan_pro';
 
-  const organizationType = normalizeStringValue(
-    profile.organization?.organization_type
-  )?.toLowerCase();
   const subscriptionStatus = normalizeStringValue(
     profile.organization?.subscription_status
   )?.toLowerCase();
