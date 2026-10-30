@@ -24,7 +24,8 @@
   }
 }
 
-.cellEmpty {
+.cellEmpty,
+.cellNoLimit {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     'label'

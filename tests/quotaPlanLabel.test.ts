@@ -32,9 +32,9 @@ describe('codexPlanLabel', () => {
 
 describe('quotaPlanLabel', () => {
   test('claude plan resolves through its i18n key with plain tier', () => {
-    const quota: ClaudeQuotaState = { status: 'success', windows: [], planType: 'plan_max20' };
+    const quota: ClaudeQuotaState = { status: 'success', windows: [], planType: 'plan_ultra' };
     const display = quotaPlanLabel('claude', quota, t as never);
-    expect(display).toEqual({ label: i18n.t('claude_quota.plan_max20'), tier: 'plain' });
+    expect(display).toEqual({ label: 'Ultra', tier: 'plain' });
   });
 
   test('codex pro carries the elite tier and prolite the premium tier', () => {

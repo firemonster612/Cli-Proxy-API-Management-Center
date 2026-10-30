@@ -44,6 +44,9 @@ describe('planWeight', () => {
     expect(planWeight('claude', claude(0, 'default_claude_max_20x', NOW))).toBe(20);
     expect(planWeight('claude', claude(0, 'default_claude_max_5x', NOW))).toBe(5);
     expect(planWeight('claude', claude(0, '', NOW))).toBe(5);
+    expect(
+      planWeight('claude', { ...claude(0, 'default_claude_ultra', NOW), planType: 'plan_ultra' })
+    ).toBe(20);
   });
 
   test('maps Codex plans to their multiples', () => {
@@ -436,15 +439,27 @@ describe('settlePoll', () => {
 describe('Claude profile', () => {
   const profile = (tier: string, organizationType: string) => ({
     account: { has_claude_max: true },
-    organization: { name: 'Northwind Labs', organization_type: organizationType, rate_limit_tier: tier },
+    organization: {
+      name: 'Northwind Labs',
+      organization_type: organizationType,
+      rate_limit_tier: tier,
+    },
   });
 
-  test('maps the Max tier to plan_max5 / plan_max20', () => {
-    expect(resolveClaudePlanType(profile('default_claude_max_5x', 'claude_max'))).toBe('plan_max5');
+  test('maps Max 20x to Ultra and Max 5x to Max', () => {
+    expect(resolveClaudePlanType(profile('default_claude_max_5x', 'claude_max'))).toBe('plan_max');
     expect(resolveClaudePlanType(profile('default_claude_max_20x', 'claude_max'))).toBe(
-      'plan_max20'
+      'plan_ultra'
     );
     expect(resolveClaudePlanType(profile('', 'claude_max'))).toBe('plan_max');
+  });
+
+  test('recognizes Ultra under the names the profile may switch to', () => {
+    expect(resolveClaudePlanType(profile('default_claude_ultra', 'claude_max'))).toBe('plan_ultra');
+    expect(resolveClaudePlanType(profile('', 'claude_ultra'))).toBe('plan_ultra');
+    expect(resolveClaudePlanType({ account: { has_claude_ultra: true }, organization: {} })).toBe(
+      'plan_ultra'
+    );
   });
 
   test('names only Team and Enterprise organizations', () => {

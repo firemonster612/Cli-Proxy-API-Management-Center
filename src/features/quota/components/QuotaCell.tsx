@@ -36,12 +36,12 @@ export function QuotaCell({ cell, columnLabel, extras, dimmed = false }: QuotaCe
   const { t, i18n } = useTranslation();
   const now = useNow(Boolean(cell?.resetAtMs));
 
-  if (!cell) {
+  if (!cell || cell.noLimit) {
     return (
-      <div className={`${styles.cell} ${styles.cellEmpty}`}>
+      <div className={`${styles.cell} ${cell ? styles.cellNoLimit : styles.cellEmpty}`}>
         <span className={styles.label}>{columnLabel}</span>
-        <span className={styles.dash} aria-hidden="true">
-          —
+        <span className={styles.dash} aria-hidden={!cell}>
+          {cell ? t('quota_management.cell_no_limit') : '—'}
         </span>
       </div>
     );

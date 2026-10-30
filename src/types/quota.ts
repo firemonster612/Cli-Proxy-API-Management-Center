@@ -135,6 +135,7 @@ export interface ClaudeProfileResponse {
     display_name?: string;
     email?: string;
     has_claude_max?: boolean;
+    has_claude_ultra?: boolean;
     has_claude_pro?: boolean;
     created_at?: string;
   };
